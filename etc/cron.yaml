@@ -1,0 +1,29 @@
+Name: cron.rpc
+ListenOn: "0.0.0.0:${SERVICE_PORT}"
+
+Log:
+  Mode: file
+  Path: logs
+  Level: info
+  KeepDays: 7
+  MaxSize: 128
+
+Mysql:
+  DataSource: ${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:3306)/eds_cron?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
+CacheRedis:
+  - Host: ${REDIS_HOST}:6379
+    Pass: "${REDIS_PASSWORD}"
+    Type: node
+
+Ocr:
+  Endpoint: docmind-api.cn-hangzhou.aliyuncs.com
+  AccessKeyId: ${ALIYUN_ACCESS_KEY_ID}
+  AccessKeySecret: ${ALIYUN_ACCESS_KEY_SECRET}
+
+Mail:
+  Host: smtp.qq.com
+  Port: 465
+  Username: seeccloud@qq.com
+  Password: ${SMTP_PASSWORD}
+  Addr: haisheng.xu@xseec.cn

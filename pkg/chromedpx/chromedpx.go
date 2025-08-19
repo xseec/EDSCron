@@ -1,0 +1,265 @@
+package chromedpx
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/target"
+	"github.com/chromedp/chromedp"
+)
+
+// DPUrl 定义网页URL和点击操作配置
+type DPUrl struct {
+	Url    string   `json:"url" yaml:"url"`       // 目标网页URL
+	Clicks []string `json:"clicks" yaml:"clicks"` // 点击目标列表，可以是innerText、id、class或style
+	// 以*开头的点击项为可选操作(如弹窗确认按钮)
+}
+
+// DPOuter 定义结果提取配置
+type DPOuter struct {
+	Selector string `json:"selector" yaml:"selector"` // 结果选择器，空表示新标签页URL
+	Pattern  string `json:"pattern" yaml:"pattern"`   // 结果匹配正则表达式
+	Host     string `json:"host" yaml:"host"`         // 域名补全，用于子域名结果
+}
+
+// DP 定义完整的浏览器自动化配置
+type DP struct {
+	IsVisible bool    `json:"is_visible" yaml:"is_visible"` // 是否显示浏览器窗口
+	Urls      []DPUrl `json:"urls" yaml:"urls"`             // 网页操作流程
+	Outer     DPOuter `json:"outer" yaml:"outer"`           // 结果提取配置
+}
+
+// Run 执行浏览器自动化流程
+//
+// 参数:
+//   - ctx: 上下文
+//   - html: 用于存储结果的指针
+//
+// 返回:
+//   - error: 执行过程中的错误
+func (dp *DP) Run(ctx context.Context, html *string) error {
+	if len(dp.Urls) == 0 {
+		return fmt.Errorf("URL配置不能为空")
+	}
+
+	if html == nil {
+		return fmt.Errorf("结果存储指针不能为nil")
+	}
+
+	// 初始化浏览器上下文
+	cctx, cancels := initDP(ctx, dp.IsVisible)
+	defer func() {
+		for _, c := range cancels {
+			c()
+		}
+	}()
+
+	// 执行每个URL的操作流程
+	for i, u := range dp.Urls {
+		if err := dp.processURL(cctx, u, i); err != nil {
+			return fmt.Errorf("处理URL[%s]失败: %w", u.Url, err)
+		}
+	}
+
+	// 提取最终结果
+	*html = useOuter(cctx, dp.Outer)
+	if *html == "" {
+		return fmt.Errorf("未获取到有效结果，配置: %+v", *dp)
+	}
+
+	return nil
+}
+
+// processURL 处理单个URL的操作流程
+func (dp *DP) processURL(ctx context.Context, u DPUrl, urlIndex int) error {
+	// 导航到目标URL
+	if err := chromedp.Run(ctx, chromedp.Navigate(u.Url)); err != nil {
+		return fmt.Errorf("导航失败: %w", err)
+	}
+
+	// 执行每个点击操作
+	for j, click := range u.Clicks {
+		if err := dp.processClick(ctx, click, urlIndex, j, len(u.Clicks)-1); err != nil {
+			return fmt.Errorf("点击操作[%s]失败: %w", click, err)
+		}
+	}
+
+	return nil
+}
+
+// processClick 处理单个点击操作
+func (dp *DP) processClick(ctx context.Context, click string, urlIndex, clickIndex, lastClickIndex int) error {
+	// 处理可选点击项(以*开头)
+	optional := strings.HasPrefix(click, "*")
+	if optional {
+		click = click[1:]
+	}
+
+	// 查找目标节点
+	var nodes []*cdp.Node
+	searchCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+
+	if err := chromedp.Run(searchCtx, chromedp.WaitReady(click), chromedp.Nodes(click, &nodes, chromedp.BySearch)); !optional && err != nil {
+		return fmt.Errorf("查找节点失败: %w", err)
+	}
+
+	// 处理未找到节点的情况
+	if len(nodes) == 0 {
+		if optional {
+			return nil // 可选操作允许节点不存在
+		}
+		return fmt.Errorf("未找到匹配节点: %s", click)
+	}
+
+	// 生成选择器并执行点击
+	selector := useSelectorOf(nodes[0])
+	return dp.executeClick(ctx, selector, urlIndex, clickIndex, lastClickIndex)
+}
+
+// executeClick 执行实际的点击操作
+func (dp *DP) executeClick(ctx context.Context, selector string, urlIndex, clickIndex, lastClickIndex int) error {
+	// 最后一个点击操作不需要等待
+	duration := 1
+	if urlIndex == len(dp.Urls)-1 && clickIndex == lastClickIndex {
+		duration = 0
+	}
+
+	actions := []chromedp.Action{
+		chromedp.WaitVisible(selector),
+		chromedp.RemoveAttribute(selector, "target"), // 防止新标签页打开
+		chromedp.Sleep(5 * time.Second),              // 确保页面加载完成
+		chromedp.Click(selector),
+	}
+
+	if duration > 0 {
+		actions = append(actions, chromedp.Sleep(time.Duration(duration)*time.Second))
+	}
+
+	return chromedp.Run(ctx, actions...)
+}
+
+// initDP 初始化浏览器上下文
+func initDP(ctx context.Context, isVisible bool) (context.Context, []context.CancelFunc) {
+	// 基础配置
+	ops := []chromedp.ExecAllocatorOption{
+		chromedp.Flag("headless", !isVisible),
+		chromedp.Flag("blink-settings", "imagesEnabled=false"),
+		chromedp.UserAgent(`Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0`),
+	}
+
+	// Docker环境特殊配置
+	if os.Getenv("RUNTIME") == "docker" {
+		ops = append(ops,
+			chromedp.NoSandbox,
+			chromedp.DisableGPU,
+			chromedp.Flag("disable-dev-shm-usage", true),
+			chromedp.Flag("remote-debugging-address", "0.0.0.0"),
+			chromedp.Flag("remote-debugging-port", "9222"),
+		)
+	}
+
+	// 合并默认配置
+	ops = append(chromedp.DefaultExecAllocatorOptions[:], ops...)
+
+	// 创建上下文链
+	ctx, c0 := context.WithTimeout(ctx, 5*time.Minute)
+	ctx, c1 := chromedp.NewExecAllocator(ctx, ops...)
+	ctx, c2 := chromedp.NewContext(ctx)
+	cancels := []context.CancelFunc{c0, c1, c2}
+
+	// 隐藏自动化特征
+	if err := chromedp.Run(ctx, hideWebDriverFlag()); err != nil {
+		// 非致命错误，仅记录
+		fmt.Printf("警告: 隐藏webdriver标志失败: %v\n", err)
+	}
+
+	return ctx, cancels
+}
+
+// hideWebDriverFlag 隐藏浏览器自动化特征
+func hideWebDriverFlag() chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+		_, err := page.AddScriptToEvaluateOnNewDocument(
+			"Object.defineProperty(navigator, 'webdriver', { get: () => undefined });",
+		).Do(ctx)
+		return err
+	})
+}
+
+// useOuter 提取操作结果
+func useOuter(ctx context.Context, o DPOuter) string {
+	var result string
+
+	if o.Selector == "" {
+		// 获取新标签页URL
+		result = getNewTabURL(ctx)
+	} else {
+		// 提取当前页面内容
+		if err := chromedp.Run(ctx, chromedp.OuterHTML(o.Selector, &result)); err != nil {
+			return ""
+		}
+
+		// 应用正则匹配
+		if o.Pattern != "" {
+			reg := regexp.MustCompile(o.Pattern)
+			subs := reg.FindStringSubmatch(result)
+			if len(subs) > 1 {
+				result = subs[1]
+			} else if len(subs) == 1 {
+				result = subs[0]
+			}
+		}
+	}
+
+	// 补全域名
+	if o.Host != "" && !strings.HasPrefix(result, o.Host) {
+		return fmt.Sprintf("%s/%s", strings.TrimRight(o.Host, "/"), strings.TrimLeft(result, "/"))
+	}
+
+	return result
+}
+
+// getNewTabURL 获取新标签页URL
+func getNewTabURL(ctx context.Context) string {
+	ch := chromedp.WaitNewTarget(ctx, func(info *target.Info) bool {
+		return info.URL != ""
+	})
+
+	select {
+	case <-time.After(3 * time.Second):
+		return ""
+	case id := <-ch:
+		nCtx, cancel := chromedp.NewContext(ctx, chromedp.WithTargetID(id))
+		defer cancel()
+
+		var url string
+		if err := chromedp.Run(nCtx, chromedp.Location(&url)); err != nil {
+			return ""
+		}
+		return url
+	}
+}
+
+// useSelectorOf 生成最优选择器
+func useSelectorOf(n *cdp.Node) string {
+	// 无效标签向上查找父节点
+	invalidTags := map[string]bool{"": true, "text": true, "span": true}
+	if invalidTags[n.LocalName] && n.Parent != nil {
+		return useSelectorOf(n.Parent)
+	}
+
+	// 优先使用带ID的XPath
+	if id := n.AttributeValue("id"); id != "" {
+		return fmt.Sprintf("//*[@id='%s']", id)
+	}
+
+	// 回退到完整XPath
+	return n.FullXPathByID()
+}

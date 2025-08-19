@@ -1,0 +1,221 @@
+package cronx
+
+import (
+	"regexp"
+	"strconv"
+	"strings"
+)
+
+// Range 定义数值范围的结构体
+type Range struct {
+	Min    int  // 最小值
+	Max    int  // 最大值
+	HasMin bool // 是否包含最小值
+	HasMax bool // 是否包含最大值
+}
+
+// Contains 检查给定值是否在范围内
+func (r Range) Contains(v float64) bool {
+	switch {
+	case r.HasMin && v < float64(r.Min), // 有最小值且小于最小值
+		!r.HasMin && v <= float64(r.Min), // 无最小值且小于等于最小值
+		r.HasMax && v > float64(r.Max),   // 有最大值且大于最大值
+		!r.HasMax && v >= float64(r.Max): // 无最大值且大于等于最大值
+		return false
+	default:
+		return true
+	}
+}
+
+// ExtractRange 从自然语言文本中提取数值范围
+func ExtractRange(text string) (Range, bool) {
+	if len(text) == 0 {
+		return Range{}, false
+	}
+
+	// 预处理文本：统一符号格式，去除干扰字符
+	text = strings.ToLower(text)
+	text = strings.ReplaceAll(text, " ", "")  // 去除空格
+	text = strings.ReplaceAll(text, "，", ",") // 全角逗号转半角
+	text = strings.ReplaceAll(text, "－", "-") // 全角连字符转半角
+	text = strings.ReplaceAll(text, "～", "~") // 全角波浪线转半角
+	text = strings.ReplaceAll(text, ":", "~") // 冒号转波浪线
+	text = strings.ReplaceAll(text, "—", "-") // 破折号转连字符
+
+	// 先尝试匹配范围模式（如100-200）
+	if r, ok := matchRangePatterns(text); ok {
+		return r, true
+	}
+
+	// 再尝试匹配单值模式（如100以上）
+	if r, ok := matchSingleValuePatterns(text); ok {
+		return r, true
+	}
+
+	return Range{}, false
+}
+
+// matchRangePatterns 匹配各种范围表达式
+func matchRangePatterns(text string) (Range, bool) {
+	// 定义各种范围模式及其处理函数
+	patterns := []struct {
+		regex   *regexp.Regexp               // 正则表达式
+		handler func([]string) (Range, bool) // 处理函数
+	}{
+		// 简单范围格式：100-200、100~200、100至200、100到200
+		{regexp.MustCompile(`(\d+)(?:-|~|至|到)(\d+)[^\d]*`), handleSimpleRange},
+		// 完整范围格式：100以上~200以下
+		{regexp.MustCompile(`(\d+)以上(?:-|~|至|到)(\d+)以下[^\d]*`), handleFullRange},
+		// 带单位的范围格式：100~200kg
+		{regexp.MustCompile(`(\d+)(?:-|~|至|到)(\d+)([^\d]+)`), handleRangeWithUnit},
+	}
+
+	// 尝试匹配每种模式
+	for _, p := range patterns {
+		if matches := p.regex.FindStringSubmatch(text); matches != nil {
+			return p.handler(matches)
+		}
+	}
+
+	return Range{}, false
+}
+
+// matchSingleValuePatterns 匹配各种单值表达式
+func matchSingleValuePatterns(text string) (Range, bool) {
+	// 定义各种单值模式及其处理函数
+	patterns := []struct {
+		regex   *regexp.Regexp
+		handler func([]string) (Range, bool)
+	}{
+		// 100及以上
+		{regexp.MustCompile(`(\d+)[^及以上下]*及以上[^\d]*`), handleAboveInclusive},
+		// 100以上
+		{regexp.MustCompile(`(\d+)[^及以上下]*以上[^\d]*`), handleAbove},
+		// 100及以下
+		{regexp.MustCompile(`(\d+)[^及以上下]*及以下[^\d]*`), handleBelowInclusive},
+		// 100以下
+		{regexp.MustCompile(`(\d+)[^及以上下]*以下[^\d]*`), handleBelow},
+		// 超过100
+		{regexp.MustCompile(`超过(\d+)[^\d]*`), handleAbove},
+		// 不足100
+		{regexp.MustCompile(`不[满足](\d+)[^\d]*`), handleBelow},
+		// 纯数字
+		{regexp.MustCompile(`(\d+)[^\d]*`), handleSingleValue},
+	}
+
+	// 尝试匹配每种模式
+	for _, p := range patterns {
+		if matches := p.regex.FindStringSubmatch(text); matches != nil {
+			return p.handler(matches)
+		}
+	}
+
+	return Range{}, false
+}
+
+// handleSimpleRange 处理简单范围格式：100-200
+func handleSimpleRange(matches []string) (Range, bool) {
+	min, err1 := strconv.Atoi(matches[1])
+	max, err2 := strconv.Atoi(matches[2])
+	if err1 != nil || err2 != nil {
+		return Range{}, false
+	}
+	return Range{
+		Min:    min,
+		Max:    max,
+		HasMin: true,
+		HasMax: true,
+	}, true
+}
+
+// handleFullRange 处理完整范围格式：100以上~200以下
+func handleFullRange(matches []string) (Range, bool) {
+	min, err1 := strconv.Atoi(matches[1])
+	max, err2 := strconv.Atoi(matches[2])
+	if err1 != nil || err2 != nil {
+		return Range{}, false
+	}
+	return Range{
+		Min:    min,
+		Max:    max,
+		HasMin: true,
+		HasMax: true,
+	}, true
+}
+
+// handleRangeWithUnit 处理带单位的范围格式：100~200kg
+func handleRangeWithUnit(matches []string) (Range, bool) {
+	min, err1 := strconv.Atoi(matches[1])
+	max, err2 := strconv.Atoi(matches[2])
+	if err1 != nil || err2 != nil {
+		return Range{}, false
+	}
+	return Range{
+		Min:    min,
+		Max:    max,
+		HasMin: true,
+		HasMax: true,
+	}, true
+}
+
+// handleAboveInclusive 处理"大于等于"表达式：100及以上
+func handleAboveInclusive(matches []string) (Range, bool) {
+	val, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return Range{}, false
+	}
+	return Range{
+		Min:    val,
+		HasMin: true,
+	}, true
+}
+
+// handleAbove 处理"大于"表达式：100以上、超过100
+func handleAbove(matches []string) (Range, bool) {
+	val, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return Range{}, false
+	}
+	return Range{
+		Min:    val + 1, // 大于100实际是从101开始
+		HasMin: true,
+	}, true
+}
+
+// handleBelowInclusive 处理"小于等于"表达式：100及以下
+func handleBelowInclusive(matches []string) (Range, bool) {
+	val, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return Range{}, false
+	}
+	return Range{
+		Max:    val,
+		HasMax: true,
+	}, true
+}
+
+// handleBelow 处理"小于"表达式：100以下、不足100
+func handleBelow(matches []string) (Range, bool) {
+	val, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return Range{}, false
+	}
+	return Range{
+		Max:    val - 1, // 小于100实际是到99
+		HasMax: true,
+	}, true
+}
+
+// handleSingleValue 处理纯数字表达式：100
+func handleSingleValue(matches []string) (Range, bool) {
+	val, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return Range{}, false
+	}
+	return Range{
+		Min:    val,
+		Max:    val,
+		HasMin: true,
+		HasMax: true,
+	}, true
+}
