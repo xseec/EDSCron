@@ -38,7 +38,7 @@ func NewWeatherModel(conn sqlx.SqlConn, c cache.CacheConf) WeatherModel {
 func (m *customWeatherModel) FindMoreByDateCity(ctx context.Context, date string, city string, size int64) (*[]Weather, error) {
 	// 天气未开放人为编辑接口，加入缓存安全
 	start := time.Now()
-	if t, err := time.Parse(vars.DateFormat, date); err == nil {
+	if t, err := time.ParseInLocation(vars.DateFormat, date, time.Local); err == nil {
 		start = t
 	}
 

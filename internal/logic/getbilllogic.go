@@ -38,18 +38,18 @@ func (l *GetBillLogic) GetBill(in *cron.BillReq) (*cron.BillRsp, error) {
 		return nil, err
 	}
 
-	t, err := time.Parse(vars.DatetimeFormat, in.Time)
+	t, err := time.ParseInLocation(vars.DatetimeFormat, in.Time, time.Local)
 	if err != nil {
 		return nil, err
 	}
 
-	infos := strings.Split(in.Category, model.CategorySep)
+	infos := strings.Split(in.Category, cronx.CategorySep)
 	if len(infos) < 3 {
 		return nil, fmt.Errorf("req.Category格式错误, 正确格式: %s", model.CategoryFormatTip)
 	}
 
 	// 考虑存在阶梯电价
-	start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC).Unix()
+	start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
 	all, err := l.svcCtx.DlgdModel.FindAllByAreaStartTimeCategoryVoltage(l.ctx, infos[0], start, infos[1], infos[2])
 	if err != nil {
 		return nil, err
@@ -75,9 +75,13 @@ func (l *GetBillLogic) GetBill(in *cron.BillReq) (*cron.BillRsp, error) {
 		tm := t.Add(time.Minute * 30 * time.Duration(i))
 		totalEp += ep
 		dlgd = getDlgdByEp(all, ranges, totalEp)
-		price := l.svcCtx.GetPrice(tm, &dlgd)
-		bills[price.Period] += price.Value * ep
-		usages[price.Period] += ep
+		price, err := l.svcCtx.GetDlgdPrice(tm, &dlgd)
+		if err != nil {
+			return nil, err
+		}
+
+		bills[price.Name] += price.Value * ep
+		usages[price.Name] += ep
 	}
 
 	// 峰谷分时电量电费
@@ -122,7 +126,7 @@ func getDlgdByEp(all *[]model.Dlgd, ranges map[cronx.Range]int64, ep float64) mo
 
 	var id int64
 	for k, v := range ranges {
-		if k.Contains(ep) {
+		if k.Contains(int(ep)) {
 			id = v
 			break
 		}

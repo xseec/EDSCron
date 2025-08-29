@@ -7,6 +7,13 @@ import (
 	"github.com/siongui/gojianfan"
 )
 
+type AreaCategory string
+
+const (
+	TaiwanArea AreaCategory = "taiwan"
+	ChinaArea  AreaCategory = "china"
+)
+
 // EitherChinaOrTaiwan 根据地址判断所属区域
 //
 // 参数:
@@ -17,12 +24,13 @@ import (
 //   - "taiwan": 台湾地区地址
 //
 // 注意: 目前仅支持中国大陆和台湾地区的识别
-func EitherChinaOrTaiwan(address string) string {
+func EitherChinaOrTaiwan(address string) AreaCategory {
 	province, _ := ExtractAddress(address, true)
-	if strings.Contains(address, "台湾") || province == "台湾" {
-		return "taiwan"
+	if strings.Contains(address, taiwanAreaName) || province == taiwanAreaName {
+		return TaiwanArea
 	}
-	return "china"
+
+	return ChinaArea
 }
 
 // ExtractAddress 从地址中提取省市级信息
@@ -63,7 +71,7 @@ func ExtractAddress(address string, short bool) (province, city string) {
 
 	// 尝试匹配台湾地区地址格式
 	if matches := regexp.MustCompile(taiwanPattern).FindStringSubmatch(address); len(matches) == 3 {
-		province, city = "台湾", matches[2]
+		province, city = taiwanAreaName, matches[2]
 		return
 	}
 

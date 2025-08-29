@@ -15,9 +15,6 @@ import (
 const (
 	// 国家温室气体排放因子数据库API
 	carbonFactorAPI = "https://data.ncsc.org.cn/factoryes/api/factor/metaData/getFactorTables?pkid=82"
-
-	// 请求超时时间
-	requestTimeout = 30 * time.Second
 )
 
 var (
@@ -52,7 +49,7 @@ type CarbonConfig struct{}
 //   - error: 错误信息
 func (c CarbonConfig) Run(m *MailConfig) (*[]CarbonFactor, error) {
 	// 创建HTTP客户端并设置超时
-	client := &http.Client{Timeout: requestTimeout}
+	client := &http.Client{Timeout: 30 * time.Second}
 
 	// 发送HTTP请求获取数据
 	resp, err := client.Get(carbonFactorAPI)

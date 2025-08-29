@@ -13,6 +13,7 @@ import (
 	aliapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	pdf "github.com/pdfcpu/pdfcpu/pkg/api"
 	"seeccloud.com/edscron/pkg/chromedpx"
+	"seeccloud.com/edscron/pkg/x/slicex"
 )
 
 // TwdlConfig 台湾电价获取配置
@@ -22,7 +23,7 @@ type TwdlConfig struct {
 	Dp       chromedpx.DP  `json:"dp"`        // 网页爬虫配置
 }
 
-func (c TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]string, *string, error) {
+func (c *TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]Holiday, error) {
 
 	var url, calUrl, calPdfPath, calExcelPath, pdfPath, wordPath, firstPafPath, subsPdfPath, excelPath string
 	startDate := ""
@@ -47,13 +48,13 @@ func (c TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]string, *string, error) {
 
 	preloadActions := []Action{
 		cropPdfAc(&pdfPath, &firstPafPath, &[]string{"1"}),
-		pdfConvertAc(&firstPafPath, &wordPath, FormatWord),
+		pdfConvertAc(&firstPafPath, &wordPath, formatWord),
 		extractFirstPageAc(&wordPath, &startDate, &page),
 	}
 
 	calActions := []Action{
 		localizeAc(&calUrl, &calPdfPath),
-		pdfConvertAc(&calPdfPath, &calExcelPath, FormatExcel),
+		pdfConvertAc(&calPdfPath, &calExcelPath, formatExcel),
 		excelizeCalAc(&calExcelPath, &offPeakDays),
 	}
 
@@ -71,7 +72,7 @@ func (c TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]string, *string, error) {
 
 	for i, ac := range actions {
 		if err := ac(); err != nil {
-			return nil, nil, nil, fmt.Errorf("执行任务步骤%d失败: %w", i, err)
+			return nil, nil, fmt.Errorf("执行任务步骤%d失败: %w", i, err)
 		}
 	}
 
@@ -85,10 +86,20 @@ func (c TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]string, *string, error) {
 			Details:     template.HTML(formatTwdls(values, true)),
 		}, calPdfPath, calExcelPath, pdfPath, wordPath, excelPath)
 
-		return &values, &offPeakDays, &fileSize, nil
+		c.FileSize = fileSize
+
+		days := slicex.MapFunc(offPeakDays, func(s string) Holiday {
+			return Holiday{
+				Area:     string(TaiwanArea),
+				Alias:    taiwanAreaName,
+				Date:     s,
+				Category: string(HolidayPeakOff),
+			}
+		})
+		return &values, &days, nil
 	}
 
-	return nil, nil, nil, fmt.Errorf("空数据错误: %v", c)
+	return nil, nil, fmt.Errorf("空数据错误: %v", c)
 }
 
 func extractContentAc(fileSize, url, calendarUrl *string) Action {

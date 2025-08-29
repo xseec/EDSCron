@@ -18,12 +18,10 @@ const (
 	defSheet         = "sheet1"                // 默认Excel工作表名称
 	voltageName      = "电压等级"                  // 电压等级列标题
 	voltageSZName    = "用电类别"                  // 深圳特殊列标题
-	voltageUnit      = "千伏"                    // 电压单位
 	voltagePattern   = "千伏(及以上)?$"             // 电压等级匹配正则
 	voltageSZPattern = "(千伏安·月|千瓦·月|接入用电\\))$" // 深圳特殊电压匹配正则
 	dlgdTag          = "dlgd"                  // 结构体字段标签前缀
 	unitTag          = "unit"                  // 单位转换标签
-	textSep          = ","                     // 文本分隔符
 )
 
 // 单位转换映射表
@@ -41,7 +39,7 @@ func (row *DlgdRow) format(unit float64) {
 	for i := 0; i < rType.NumField(); i++ {
 		// 处理字符串字段：去除末尾分隔符
 		if rValue.Field(i).Kind() == reflect.String {
-			rValue.Field(i).SetString(strings.Trim(rValue.Field(i).String(), textSep))
+			rValue.Field(i).SetString(strings.Trim(rValue.Field(i).String(), fieldValueSep))
 			continue
 		}
 
@@ -148,8 +146,8 @@ func (row *DlgdRow) evaluate(titles, values []string) {
 				case reflect.String:
 					// 字符串类型处理（深圳特殊情况可能跨多列）
 					if !strings.Contains(dlValue.Field(i).String(), values[index]) {
-						s := dlValue.Field(i).String() + textSep + values[index]
-						dlValue.Field(i).SetString(strings.Trim(s, textSep))
+						s := dlValue.Field(i).String() + fieldValueSep + values[index]
+						dlValue.Field(i).SetString(strings.Trim(s, fieldValueSep))
 					}
 				}
 			}
@@ -165,7 +163,7 @@ func (row *DlgdRow) evaluate(titles, values []string) {
 //	Voltage: "10千伏高供低计(380V/220V计量)"
 //	Stage: "250kW·h及以下／千伏安·月"
 func (row *DlgdRow) splitSZCategory() {
-	infos := strings.Split(row.Category, textSep)
+	infos := strings.Split(row.Category, fieldValueSep)
 	if len(infos) == 3 && len(row.Voltage) == 0 && len(row.Stage) == 0 {
 		row.Category = infos[0]
 		row.Voltage = infos[1]

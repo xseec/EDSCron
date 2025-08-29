@@ -12,15 +12,6 @@ import (
 	"github.com/alibabacloud-go/tea-utils/v2/service"
 )
 
-// 输出格式枚举类型
-type OutputFormat string
-
-const (
-	FormatExcel OutputFormat = "excel" // Excel格式输出
-	FormatWord  OutputFormat = "word"  // Word格式输出
-	FormatImage OutputFormat = "image" // 图片格式输出
-)
-
 /*
 使用示例:
 err := aliConvertPDF(config, inPath, &outPath, FormatExcel)  // 转换为Excel
@@ -73,7 +64,7 @@ func aliConvertPDF(config aliapi.Config, inPath string, outUrl *string, format O
 	// 根据格式选择不同的转换请求
 	var responseBody []byte
 	switch format {
-	case FormatExcel:
+	case formatExcel:
 		request := alidoc.SubmitConvertPdfToExcelJobAdvanceRequest{
 			FileName:      &inPath,
 			FileUrlObject: file,
@@ -84,7 +75,7 @@ func aliConvertPDF(config aliapi.Config, inPath string, outUrl *string, format O
 		}
 		responseBody = []byte(response.Body.String())
 
-	case FormatWord:
+	case formatWord:
 		request := alidoc.SubmitConvertPdfToWordJobAdvanceRequest{
 			FileName:      &inPath,
 			FileUrlObject: file,
@@ -95,7 +86,7 @@ func aliConvertPDF(config aliapi.Config, inPath string, outUrl *string, format O
 		}
 		responseBody = []byte(response.Body.String())
 
-	case FormatImage:
+	case formatImage:
 		request := alidoc.SubmitConvertPdfToImageJobAdvanceRequest{
 			FileName:      &inPath,
 			FileUrlObject: file,

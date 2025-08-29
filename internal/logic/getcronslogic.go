@@ -5,8 +5,8 @@ import (
 
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/svc"
+	"seeccloud.com/edscron/pkg/copierx"
 
-	"github.com/jinzhu/copier"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -34,7 +34,7 @@ func (l *GetCronsLogic) GetCrons(in *cron.CronsReq) (*cron.CronsRsp, error) {
 	values := make([]*cron.CronBody, 0)
 	for _, c := range *crons {
 		var cron cron.CronBody
-		copier.Copy(&cron, c)
+		copierx.Copy(&cron, c)
 		values = append(values, &cron)
 	}
 

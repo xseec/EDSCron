@@ -31,7 +31,7 @@ func localizeAc(url, path *string) Action {
 // ocrPdfAc 创建OCR识别任务
 func ocrPdfAc(config aliapi.Config, inPath, outUrl *string) Action {
 	return func() error {
-		return aliConvertPDF(config, *inPath, outUrl, FormatExcel)
+		return aliConvertPDF(config, *inPath, outUrl, formatExcel)
 	}
 }
 

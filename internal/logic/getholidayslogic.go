@@ -35,7 +35,7 @@ func (l *GetHolidaysLogic) GetHolidays(in *cron.HolidaysReq) (*cron.HolidaysRsp,
 
 	area := cronx.EitherChinaOrTaiwan(in.Address)
 	year := expx.If(in.Year == 0, time.Now().Year(), int(in.Year))
-	all, err := l.svcCtx.HolidayModel.FindAllByAreaYear(l.ctx, area, year)
+	all, err := l.svcCtx.HolidayModel.FindAllByAreaYear(l.ctx, string(area), year)
 	if err != nil {
 		return nil, err
 	}

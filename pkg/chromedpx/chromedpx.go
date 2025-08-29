@@ -79,8 +79,33 @@ func (dp *DP) Run(ctx context.Context, html *string) error {
 // processURL 处理单个URL的操作流程
 func (dp *DP) processURL(ctx context.Context, u DPUrl, urlIndex int) error {
 	// 导航到目标URL
-	if err := chromedp.Run(ctx, chromedp.Navigate(u.Url)); err != nil {
-		return fmt.Errorf("导航失败: %w", err)
+	// 重试配置
+	maxRetries := 5               // 最大重试次数
+	baseDelay := 10 * time.Second // 基础延迟
+	var lastErr error
+
+	// 重试导航
+	for i := range maxRetries {
+		// 指数退避延迟（第一次立即重试）
+		if i > 0 {
+			delay := baseDelay * time.Duration(1<<(i-1)) // 10s, 20s, 40s...
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+
+		// 尝试导航
+		err := chromedp.Run(ctx, chromedp.Navigate(u.Url))
+		if err == nil {
+			break // 成功则退出重试
+		}
+		lastErr = fmt.Errorf("导航重试(%d/%d)失败: %w", i+1, maxRetries, err)
+	}
+
+	if lastErr != nil {
+		return lastErr
 	}
 
 	// 执行每个点击操作
@@ -236,9 +261,7 @@ func getNewTabURL(ctx context.Context) string {
 	case <-time.After(3 * time.Second):
 		return ""
 	case id := <-ch:
-		nCtx, cancel := chromedp.NewContext(ctx, chromedp.WithTargetID(id))
-		defer cancel()
-
+		nCtx, _ := chromedp.NewContext(ctx, chromedp.WithTargetID(id))
 		var url string
 		if err := chromedp.Run(nCtx, chromedp.Location(&url)); err != nil {
 			return ""

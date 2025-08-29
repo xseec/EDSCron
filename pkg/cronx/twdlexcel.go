@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xuri/excelize/v2"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -54,10 +55,10 @@ type CategoryItem struct {
 
 // TwdlRow 台湾电力电价明细，繁体转简体可能出错，twdl避免繁体标识,\\p{Han}{n}用\\p{Han}{n-1,n+1}代替
 type TwdlRow struct {
-	StartTime int64  `json:"start_time"`                     // 起始时间(Unix时间戳，utc，包含)
-	Category  string `json:"category"`                       // 用电类别
-	Date      string `json:"date"`                           // 日期范围(含首尾)，格式如"0101-0531,1001-1231"、"0601-0930"
-	Stage     string `json:"stage" twdl:"((?:超過)?\\d+.*部分)"` // 阶梯电量阈值，加最外围括号目的是提取tile置于Stage的值中
+	StartTime time.Time `json:"start_time"`                     // 起始时间
+	Category  string    `json:"category"`                       // 用电类别
+	Date      string    `json:"date"`                           // 日期范围(含首尾)，格式如"0101-0531,1001-1231"、"0601-0930"
+	Stage     string    `json:"stage" twdl:"((?:超過)?\\d+.*部分)"` // 阶梯电量阈值，加最外围括号目的是提取tile置于Stage的值中
 	// 以下字段定义流动电费
 	Standard        float64 `json:"standard" twdl:"^流\\p{Han}{2,4}每度$"`     // 非时间基准电价，tag: 流動電費每度
 	WeekdayPeak     float64 `json:"weekday_peak" twdl:"五尖峰.*"`              // 周一至周五尖峰电价，tag: 週一至週五尖峰時間
@@ -94,27 +95,24 @@ const (
 
 var (
 	twdlCategories = []string{
-		"表燈(住商)電價 > 非時間電價 > 住宅用",
-		"表燈(住商)電價 > 非時間電價 > 住宅以外非營業用",
-		"表燈(住商)電價 > 非時間電價 > 營業用",
-		"表燈(住商)電價 > 時間電價 > 簡易型時間電價 > 二段式",
-		"表燈(住商)電價 > 時間電價 > 簡易型時間電價 > 三段式",
-		"表燈(住商)電價 > 時間電價 > 標準型時間電價 > 二段式",
-		"表燈(住商)電價 > 時間電價 > 標準型時間電價 > 三段式",
-		"低壓電力電價 > 非時間電價",
-		"低壓電力電價 > 時間電價 > 二段式",
-		"低壓電力電價 > 時間電價 > 三段式",
-		"低壓電力電價 > 時間電價 > 電動車充換電設施電價",
-		"高壓及特高壓電力電價 > 二段式時間電價 > 高壓供電",
-		"高壓及特高壓電力電價 > 二段式時間電價 > 特高壓供電",
-		"高壓及特高壓電力電價 > 三段式時間電價 > 高壓供電",
-		"高壓及特高壓電力電價 > 三段式時間電價 > 特高壓供電",
-		"高壓及特高壓電力電價 > 批次生產時間電價 > 高壓供電",
-		"高壓及特高壓電力電價 > 批次生產時間電價 > 特高壓供電",
+		"表燈(住商)電價>非時間電價>住宅用",
+		"表燈(住商)電價>非時間電價>住宅以外非營業用",
+		"表燈(住商)電價>非時間電價>營業用",
+		"表燈(住商)電價>時間電價>簡易型時間電價>二段式",
+		"表燈(住商)電價>時間電價>簡易型時間電價>三段式",
+		"表燈(住商)電價>時間電價>標準型時間電價>二段式",
+		"表燈(住商)電價>時間電價>標準型時間電價>三段式",
+		"低壓電力電價>非時間電價",
+		"低壓電力電價>時間電價>二段式",
+		"低壓電力電價>時間電價>三段式",
+		"低壓電力電價>時間電價>電動車充換電設施電價",
+		"高壓及特高壓電力電價>二段式時間電價>高壓供電",
+		"高壓及特高壓電力電價>二段式時間電價>特高壓供電",
+		"高壓及特高壓電力電價>三段式時間電價>高壓供電",
+		"高壓及特高壓電力電價>三段式時間電價>特高壓供電",
+		"高壓及特高壓電力電價>批次生產時間電價>高壓供電",
+		"高壓及特高壓電力電價>批次生產時間電價>特高壓供電",
 	}
-
-	// 电价类别层级分隔符，如"五、高壓及特高壓電力電價 > (一)二段式時間電價"
-	categorySep = " > "
 
 	// 匹配以下文本时已提前处理所有空字符
 
@@ -292,7 +290,7 @@ func newTwdlRows(f *excelize.File, sheet, startDate string, row, col, colSpan in
 
 	for i := range colSpan {
 		twdl := TwdlRow{
-			StartTime: st.Unix(),
+			StartTime: st,
 			Category:  joinCategory(f, sheet, categories, row, col+i),
 		}
 
@@ -349,8 +347,8 @@ func (row *TwdlRow) evaluate(titles, values []string) {
 						s = subs[1] + titleValueSep + s
 					}
 
-					s = dlValue.Field(i).String() + textSep + s
-					s = strings.Trim(s, textSep)
+					s = dlValue.Field(i).String() + fieldValueSep + s
+					s = strings.Trim(s, fieldValueSep)
 					dlValue.Field(i).SetString(s)
 				}
 			}
@@ -365,10 +363,10 @@ func joinCategory(f *excelize.File, sheet string, categories []CategoryItem, row
 	}
 
 	cats := slicex.MapFunc(categories, func(c CategoryItem) string { return c.Text })
-	category := strings.Join(cats, categorySep)
+	category := strings.Join(cats, CategorySep)
 	cell := mustCell(f, sheet, row-1, col)
 	if m := highVoltageReg.FindString(cell); len(m) > 0 {
-		category += categorySep + m
+		category += CategorySep + m
 	}
 
 	return category

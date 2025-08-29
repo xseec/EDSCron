@@ -14,13 +14,70 @@ type Range struct {
 	HasMax bool // 是否包含最大值
 }
 
+// adjustBoundarySteps 自适应阶梯电价的边界描述
+func adjustBoundarySteps(text, stageSpe string) []string {
+	steps := strings.Split(text, stageSpe)
+
+	// 台湾电力阶梯电价的边界描述不够严谨，原文中“120度以下部分”或“1001度以上部分”均应包括自身
+	if len(steps) >= 2 {
+		first, second, secondLast, last := steps[0], steps[1], steps[len(steps)-2], steps[len(steps)-1]
+		firsts := regexp.MustCompile(`(\d+)[^及]*?以下`).FindStringSubmatch(first)
+		seconds := regexp.MustCompile(`(\d+)[^\d]+?(\d+)`).FindStringSubmatch(second)
+		if len(firsts) == 2 && len(seconds) == 3 {
+			first, _ := strconv.Atoi(firsts[1])
+			second, _ := strconv.Atoi(seconds[1])
+			if first+1 == second {
+				steps[0] = strings.ReplaceAll(steps[0], "以下", "及以下")
+			}
+		}
+
+		lasts := regexp.MustCompile(`(\d+)[^及]*?以上`).FindStringSubmatch(last)
+		secondLasts := regexp.MustCompile(`(\d+)[^\d]+?(\d+)`).FindStringSubmatch(secondLast)
+		if len(lasts) == 2 && len(secondLasts) == 3 {
+			last, _ := strconv.Atoi(lasts[1])
+			secondLast, _ := strconv.Atoi(secondLasts[2])
+			if last == secondLast+1 {
+				steps[len(steps)-1] = strings.ReplaceAll(steps[len(steps)-1], "以上", "及以上")
+			}
+		}
+	}
+
+	return steps
+}
+
+func GetStagePrice(text, stageSpe, valueSep string, total int) (float64, bool) {
+	steps := adjustBoundarySteps(text, stageSpe)
+	for _, step := range steps {
+		values := strings.Split(step, valueSep)
+		if len(values) != 2 {
+			continue
+		}
+
+		rng, ok := ExtractRange(values[0])
+		if !ok {
+			continue
+		}
+
+		if rng.Contains(total) {
+			val, err := strconv.ParseFloat(values[1], 64)
+			if err != nil {
+				continue
+			}
+			return val, true
+		}
+
+	}
+
+	return 0, false
+}
+
 // Contains 检查给定值是否在范围内
-func (r Range) Contains(v float64) bool {
+func (r Range) Contains(v int) bool {
 	switch {
-	case r.HasMin && v < float64(r.Min), // 有最小值且小于最小值
-		!r.HasMin && v <= float64(r.Min), // 无最小值且小于等于最小值
-		r.HasMax && v > float64(r.Max),   // 有最大值且大于最大值
-		!r.HasMax && v >= float64(r.Max): // 无最大值且大于等于最大值
+	case r.HasMin && v < r.Min, // 有最小值且小于最小值
+		!r.HasMin && v <= r.Min, // 无最小值且小于等于最小值
+		r.HasMax && v > r.Max,   // 有最大值且大于最大值
+		!r.HasMax && v >= r.Max: // 无最大值且大于等于最大值
 		return false
 	default:
 		return true
@@ -96,9 +153,9 @@ func matchSingleValuePatterns(text string) (Range, bool) {
 		// 100以下
 		{regexp.MustCompile(`(\d+)[^及以上下]*以下[^\d]*`), handleBelow},
 		// 超过100
-		{regexp.MustCompile(`超过(\d+)[^\d]*`), handleAbove},
+		{regexp.MustCompile(`(?:超过|超過)(\d+)[^\d]*`), handleAbove},
 		// 不足100
-		{regexp.MustCompile(`不[满足](\d+)[^\d]*`), handleBelow},
+		{regexp.MustCompile(`不[满足滿](\d+)[^\d]*`), handleBelow},
 		// 纯数字
 		{regexp.MustCompile(`(\d+)[^\d]*`), handleSingleValue},
 	}

@@ -18,8 +18,8 @@ const (
 
 // TwCarbonConfig 碳排放因子获取配置
 type TwCarbonConfig struct {
-	MaxRunYear int          // 已执行的年份(公历)
-	Dp         chromedpx.DP `json:"dp"` // 网页爬虫配置
+	MaxRunYear int          `json:"max_run_year"` // 已执行的年份(公历)
+	Dp         chromedpx.DP `json:"dp"`           // 网页爬虫配置
 }
 
 // Run 获取台湾的电力排碳系数
@@ -43,8 +43,10 @@ func (c *TwCarbonConfig) Run(m *MailConfig) (*[]CarbonFactor, error) {
 		}
 	}()
 
+	// 避免mustAdjustTwYear影响c.Dp
+	adjustDp := c.Dp
 	// 数据库或UI提供公历(2024年)，数据源用民国年份(113年)
-	mustAdjustTwYear(&c.Dp, &year)
+	mustAdjustTwYear(&adjustDp, &year)
 	// 已执行或新年份，无需执行
 	if year == c.MaxRunYear || year >= time.Now().Year() {
 		return nil, nil
@@ -52,9 +54,9 @@ func (c *TwCarbonConfig) Run(m *MailConfig) (*[]CarbonFactor, error) {
 
 	ctx := context.Background()
 	actions := []Action{
-		crawlAc(ctx, c.Dp, &url),
+		crawlAc(ctx, adjustDp, &url),
 		localizeAc(&url, &pdfPath),
-		pdfConvertAc(&pdfPath, &wordPath, FormatWord),
+		pdfConvertAc(&pdfPath, &wordPath, formatWord),
 		extractTwCarbonAc(&wordPath, &value),
 	}
 
@@ -76,7 +78,7 @@ func (c *TwCarbonConfig) Run(m *MailConfig) (*[]CarbonFactor, error) {
 	return &[]CarbonFactor{
 		{
 			Year:  int64(year),
-			Area:  "台湾",
+			Area:  taiwanAreaName,
 			Value: value,
 		},
 	}, nil

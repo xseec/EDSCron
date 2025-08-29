@@ -52,20 +52,20 @@ type Dlgd struct {
 
 // DlgdRow 代理购电电价明细
 type DlgdRow struct {
-	Area      string  `json:"area"`                              // 区域名称
-	StartTime int64   `json:"start_time"`                        // 起始时间(Unix时间戳，包含)
-	EndTime   int64   `json:"end_time"`                          // 结束时间(Unix时间戳，不包含)
-	Category  string  `json:"category" dlgd:"用电分类|用电类别"`         // 用电类别
-	Voltage   string  `json:"voltage" dlgd:"电压等级"`               // 电压等级
-	Stage     string  `json:"stage"`                             // 阶梯电量阈值
-	Fund      float64 `json:"fund" dlgd:"政府性基金及附加"`              // 政府性基金及附加
-	Sharp     float64 `json:"sharp" dlgd:"尖峰" unit:"true"`       // 尖峰电价
-	Peak      float64 `json:"peak" dlgd:"高峰|峰时段" unit:"true"`    // 高峰电价
-	Flat      float64 `json:"flat" dlgd:"平段|平时段" unit:"true"`    // 平段电价
-	Valley    float64 `json:"valley" dlgd:"低谷|谷时段" unit:"true"`  // 低谷电价
-	Deep      float64 `json:"deep" dlgd:"深谷" unit:"true"`        // 深谷电价
-	Demand    float64 `json:"demand" dlgd:"\\W*元/千瓦\\W月\\W*"`    // 需量电价
-	Capacity  float64 `json:"capacity" dlgd:"\\W*元/千伏安\\W月\\W*"` // 容量电价
+	Area      string    `json:"area"`                              // 区域名称
+	StartTime time.Time `json:"start_time"`                        // 起始时间(Unix时间戳，包含)
+	EndTime   time.Time `json:"end_time"`                          // 结束时间(Unix时间戳，不包含)
+	Category  string    `json:"category" dlgd:"用电分类|用电类别"`         // 用电类别
+	Voltage   string    `json:"voltage" dlgd:"电压等级"`               // 电压等级
+	Stage     string    `json:"stage"`                             // 阶梯电量阈值
+	Fund      float64   `json:"fund" dlgd:"政府性基金及附加"`              // 政府性基金及附加
+	Sharp     float64   `json:"sharp" dlgd:"尖峰" unit:"true"`       // 尖峰电价
+	Peak      float64   `json:"peak" dlgd:"高峰|^峰时段" unit:"true"`   // 高峰电价，仅"峰时段"会匹配"尖峰时段"
+	Flat      float64   `json:"flat" dlgd:"平段|平时段" unit:"true"`    // 平段电价
+	Valley    float64   `json:"valley" dlgd:"低谷|^谷时段" unit:"true"` // 低谷电价，仅"谷时段"会匹配"深谷时段"
+	Deep      float64   `json:"deep" dlgd:"深谷" unit:"true"`        // 深谷电价
+	Demand    float64   `json:"demand" dlgd:"\\W*元/千瓦\\W月\\W*"`    // 需量电价
+	Capacity  float64   `json:"capacity" dlgd:"\\W*元/千伏安\\W月\\W*"` // 容量电价
 
 	// 以下字段定义特殊时段的日期和时间范围
 	SharpDate  string `json:"sharp_date"`  // 尖峰日期条件
@@ -174,13 +174,13 @@ func (c DlgdConfig) initDlgdRow() (d DlgdRow) {
 	d.Area = c.Area
 
 	// 解析月份时间范围
-	start, err := time.Parse("2006年1月", c.Month)
+	start, err := time.ParseInLocation("2006年1月", c.Month, time.Local)
 	if err != nil {
 		return
 	}
 
-	d.StartTime = start.Unix()
-	d.EndTime = start.AddDate(0, 1, 0).Unix()
+	d.StartTime = start
+	d.EndTime = start.AddDate(0, 1, 0)
 
 	// 处理电价时段配置
 	for _, ph := range c.PriceHours {
@@ -322,12 +322,12 @@ func getDuration(s string) (int, error) {
 
 	for _, dur := range durs {
 		// 解析时间点
-		t1, err := time.Parse("1504", dur[1])
+		t1, err := time.ParseInLocation("1504", dur[1], time.Local)
 		if err != nil {
 			return 0, fmt.Errorf("解析起始时间失败: %w", err)
 		}
 
-		t2, err := time.Parse("1504", dur[2])
+		t2, err := time.ParseInLocation("1504", dur[2], time.Local)
 		if err != nil {
 			return 0, fmt.Errorf("解析结束时间失败: %w", err)
 		}

@@ -28,12 +28,22 @@ func NewGetEnergyOptionsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 // 获取能源可选项
 func (l *GetEnergyOptionsLogic) GetEnergyOptions(in *cron.EnergyOptionsReq) (*cron.EnergyOptionsRsp, error) {
-	if err := expx.HasZeroError(in, "Address"); err != nil {
+	err := expx.HasZeroError(in, "Address")
+	if err != nil {
 		return nil, err
 	}
 
-	province, city := cronx.ExtractAddress(in.Address, true)
-	categories, err := l.svcCtx.DlgdModel.FindCategoriesByAreas(l.ctx, city, province)
+	area := cronx.EitherChinaOrTaiwan(in.Address)
+	var categories *[]string
+	var factors []float64
+	if area == cronx.TaiwanArea {
+		categories, err = l.svcCtx.TwdlModel.FindCategories(l.ctx)
+	} else {
+		province, city := cronx.ExtractAddress(in.Address, true)
+		categories, err = l.svcCtx.DlgdModel.FindCategoriesByAreas(l.ctx, city, province)
+		factors = cronx.PowerFactors[:]
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +54,6 @@ func (l *GetEnergyOptionsLogic) GetEnergyOptions(in *cron.EnergyOptionsReq) (*cr
 
 	return &cron.EnergyOptionsRsp{
 		Categories:   *categories,
-		PowerFactors: cronx.PowerFactors[:],
+		PowerFactors: factors,
 	}, nil
 }

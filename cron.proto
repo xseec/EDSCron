@@ -3,7 +3,6 @@ syntax = "proto3";
 package cron;
 option go_package="./cron";
 
-
 service Cron {
   // 获取能源可选项
   rpc GetEnergyOptions(EnergyOptionsReq) returns(EnergyOptionsRsp);
@@ -168,9 +167,11 @@ message PriceReq{
 }
 
 message PriceRsp{
-  string period = 1; // 峰谷时段
-  double Value = 2;
-  string comment = 3; // 备注说明，如存在阶梯电价
+  string name = 1; // 电价时段
+  double value = 2; // 电价
+  string desc = 3;  // 时段文本
+  string color = 4; // 颜色
+  string comment = 5; // 备注说明，如存在阶梯电价
 }
 
 message BillReq{

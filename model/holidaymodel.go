@@ -8,11 +8,12 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"seeccloud.com/edscron/pkg/vars"
+	"seeccloud.com/edscron/pkg/x/timex"
 )
 
 var (
-	_                                   HolidayModel = (*customHolidayModel)(nil)
-	cacheEdsEnergyHolidayAreaYearPrefix              = "cache:edsEnergy:holiday:area:year:"
+	_                                 HolidayModel = (*customHolidayModel)(nil)
+	cacheEdsCronHolidayAreaYearPrefix              = "cache:edsCron:holiday:area:year:"
 )
 
 type (
@@ -22,6 +23,7 @@ type (
 		holidayModel
 		FindAllByAreaYear(ctx context.Context, area string, year int) (*[]Holiday, error)
 		AddMany(ctx context.Context, area string, holidays *[]Holiday) error
+		FindOneByAreaDateCache(ctx context.Context, area string, date string) (*Holiday, error)
 	}
 
 	customHolidayModel struct {
@@ -38,7 +40,7 @@ func NewHolidayModel(conn sqlx.SqlConn, c cache.CacheConf) HolidayModel {
 
 func (m *customHolidayModel) FindAllByAreaYear(ctx context.Context, area string, year int) (*[]Holiday, error) {
 	// 假日编辑场景较少，加入缓存安全，编辑后需同步删除缓存
-	key := fmt.Sprintf(cacheEdsEnergyHolidayAreaYearPrefix+"%s:%d", area, year)
+	key := fmt.Sprintf(cacheEdsCronHolidayAreaYearPrefix+"%s:%d", area, year)
 	var days []Holiday
 	err := m.GetCacheCtx(ctx, key, &days)
 	if err == nil {
@@ -64,14 +66,14 @@ func (m *customHolidayModel) FindAllByAreaYear(ctx context.Context, area string,
 func (m *customHolidayModel) AddMany(ctx context.Context, area string, holidays *[]Holiday) error {
 	years := map[int]any{}
 	for _, hol := range *holidays {
-		t, err := time.Parse(vars.DateFormat, hol.Date)
+		t, err := time.ParseInLocation(vars.DateFormat, hol.Date, time.Local)
 		if err != nil {
 			return err
 		}
 
 		years[t.Year()] = nil
 
-		if one, err := m.FindOneByAreaDate(ctx, area, hol.Date); err == nil {
+		if one, err := m.FindOneByAreaDateCache(ctx, area, hol.Date); err == nil {
 			one.Category = hol.Category
 			one.Detail = hol.Detail
 			err = m.Update(ctx, one)
@@ -91,9 +93,23 @@ func (m *customHolidayModel) AddMany(ctx context.Context, area string, holidays 
 
 	// 编辑后需同步删除缓存
 	for y, _ := range years {
-		key := fmt.Sprintf(cacheEdsEnergyHolidayAreaYearPrefix+"%s:%d", area, y)
+		key := fmt.Sprintf(cacheEdsCronHolidayAreaYearPrefix+"%s:%d", area, y)
 		m.DelCacheCtx(ctx, key)
 	}
 
 	return nil
+}
+
+func (m *customHolidayModel) FindOneByAreaDateCache(ctx context.Context, area string, date string) (*Holiday, error) {
+	one, err := m.FindOneByAreaDate(ctx, area, date)
+	if err == ErrNotFound {
+		key := fmt.Sprintf(cacheEdsCronHolidayAreaDatePrefix+"%s:%s", area, date)
+		m.SetCacheWithExpireCtx(ctx, key, nil, timex.SubTomorrow())
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return one, nil
 }

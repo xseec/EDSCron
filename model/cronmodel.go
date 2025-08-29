@@ -13,6 +13,7 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"seeccloud.com/edscron/pkg/x/slicex"
+	"seeccloud.com/edscron/pkg/x/timex"
 )
 
 var (
@@ -95,13 +96,13 @@ func (c *Cron) NextStartTime() error {
 		return err
 	}
 
-	c.StartTime = time.Unix(c.StartTime, 0).AddDate(times[0], times[1], times[2]).Add(time.Duration(times[3]) * time.Hour).Add(time.Duration(times[4]) * time.Minute).Add(time.Duration(times[5]) * time.Second).Unix()
+	c.StartTime = timex.Add(c.StartTime, times[0], times[1], times[2], times[3], times[4], times[5])
 
 	// 预防冷却太久，下期起始时间小于当前时间
-	if c.StartTime < time.Now().Unix() {
+	if c.StartTime.Before(time.Now()) {
 		now := time.Now()
 		startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		c.StartTime = startOfDay.AddDate(times[0], times[1], times[2]).Add(time.Duration(times[3]) * time.Hour).Add(time.Duration(times[4]) * time.Minute).Add(time.Duration(times[5]) * time.Second).Unix()
+		c.StartTime = timex.Add(startOfDay, times[0], times[1], times[2], times[3], times[4], times[5])
 	}
 	return nil
 }
@@ -117,7 +118,7 @@ func (c *Cron) NextTask() ([]byte, error) {
 		// (台湾)碳排查的是去年的数据
 		t = time.Now().AddDate(-1, 0, 0)
 	} else {
-		t = time.Now().AddDate(times[0], times[1], times[2]).Add(time.Duration(times[3]) * time.Hour).Add(time.Duration(times[4]) * time.Minute).Add(time.Duration(times[5]) * time.Second)
+		t = timex.Add(time.Now(), times[0], times[1], times[2], times[3], times[4], times[5])
 	}
 
 	return []byte(strings.ReplaceAll(c.Task, c.Time, t.Format(c.Time))), nil

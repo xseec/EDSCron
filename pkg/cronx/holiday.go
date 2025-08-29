@@ -13,11 +13,13 @@ import (
 	"seeccloud.com/edscron/pkg/x/slicex"
 )
 
-// 常量定义
-var (
-	dateFormat         = "2006-01-02" // 日期格式
-	HolidayText        = "假日"         // 节假日类型标识
-	WeekendWorkdayText = "调休工作日"      // 调休工作日类型标识
+type HolidayCategory string
+
+const (
+	HolidayOff     HolidayCategory = "假日"
+	HolidayOn      HolidayCategory = "调休工作日"
+	HolidayPeakOff HolidayCategory = "离峰日"
+	HolidayNull    HolidayCategory = ""
 )
 
 // HolidayConfig 节假日配置结构体
@@ -128,7 +130,7 @@ func regexHolidayCalendar(area string, alias string, year int, html string, days
 						Area:     area,
 						Alias:    alias,
 						Date:     dateStr,
-						Category: HolidayText,
+						Category: string(HolidayOff),
 					})
 				} else if (date.Weekday() == time.Saturday && !strings.Contains(className, "sat")) ||
 					(date.Weekday() == time.Sunday && !strings.Contains(className, "sun")) {
@@ -137,7 +139,7 @@ func regexHolidayCalendar(area string, alias string, year int, html string, days
 						Area:     area,
 						Alias:    alias,
 						Date:     dateStr,
-						Category: WeekendWorkdayText,
+						Category: string(HolidayOn),
 					})
 				}
 			})
@@ -170,7 +172,7 @@ func regexHolidayDetail(year int, html string, days *[]Holiday, selectors ...str
 	for _, detail := range details {
 		// 提取日期信息（如"1月1日"）
 		value := fmt.Sprintf("%d年%s", year, regexp.MustCompile(`\d{1,2}月\d{1,2}日`).FindString(detail))
-		date, err := time.Parse("2006年1月2日", value)
+		date, err := time.ParseInLocation("2006年1月2日", value, time.Local)
 		if err != nil {
 			continue
 		}
@@ -210,11 +212,11 @@ func expandHoliday(days *[]Holiday, holiday string, from, delta int) {
 	}
 
 	// 计算相邻日期
-	d, _ := time.Parse(dateFormat, (*days)[from].Date)
+	d, _ := time.ParseInLocation(dateFormat, (*days)[from].Date, time.Local)
 	date := d.AddDate(0, 0, delta).Format(dateFormat)
 
 	// 检查是否为连续节假日
-	if (*days)[i].Date == date && (*days)[i].Category == HolidayText {
+	if (*days)[i].Date == date && (*days)[i].Category == string(HolidayOff) {
 		(*days)[i].Detail += holiday
 		// 递归扩展
 		expandHoliday(days, holiday, i, delta)

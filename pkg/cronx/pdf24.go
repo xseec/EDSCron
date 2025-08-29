@@ -19,15 +19,15 @@ import (
 
 var (
 	pdf24SubUrls = map[OutputFormat]string{
-		FormatExcel: "Excel",
-		FormatWord:  "Word",
-		FormatImage: "Png",
+		formatExcel: "Excel",
+		formatWord:  "Word",
+		formatImage: "Png",
 	}
 
 	exts = map[OutputFormat]string{
-		FormatExcel: ".xlsx",
-		FormatWord:  ".docx",
-		FormatImage: ".png",
+		formatExcel: ".xlsx",
+		formatWord:  ".docx",
+		formatImage: ".png",
 	}
 )
 
@@ -109,7 +109,7 @@ func pdf24Convert(inPath string, format OutputFormat, outPath *string) error {
 
 	fileName := strings.TrimRight(filepath.Base(inPath), inExt)
 	ext := exts[format]
-	if format == FormatImage {
+	if format == formatImage {
 		cnt, _ := pdf.PageCountFile(inPath)
 		if cnt > 1 {
 			ext = ".zip"

@@ -38,7 +38,7 @@ func (l *AddHolidaysLogic) AddHolidays(in *cron.AddHolidaysReq) (*cron.ResultRsp
 
 	var many []model.Holiday
 	copier.Copy(&many, in.Holidays)
-	if err := l.svcCtx.HolidayModel.AddMany(l.ctx, area, &many); err != nil {
+	if err := l.svcCtx.HolidayModel.AddMany(l.ctx, string(area), &many); err != nil {
 		return nil, err
 	}
 

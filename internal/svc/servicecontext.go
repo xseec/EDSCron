@@ -18,6 +18,7 @@ type ServiceContext struct {
 	CronModel    model.CronModel
 	CarbonModel  model.CarbonModel
 	DlgdModel    model.DlgdModel
+	TwdlModel    model.TwdlModel
 	HolidayModel model.HolidayModel
 	WeatherModel model.WeatherModel
 	AreaModel    model.AreaModel
@@ -31,6 +32,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		CronModel:    model.NewCronModel(conn, c.CacheRedis),
 		CarbonModel:  model.NewCarbonModel(conn, c.CacheRedis),
 		DlgdModel:    model.NewDlgdModel(conn, c.CacheRedis),
+		TwdlModel:    model.NewTwdlModel(conn, c.CacheRedis),
 		HolidayModel: model.NewHolidayModel(conn, c.CacheRedis),
 		WeatherModel: model.NewWeatherModel(conn, c.CacheRedis),
 		AreaModel:    model.NewAreaModel(conn, c.CacheRedis),
@@ -45,19 +47,21 @@ func (svc *ServiceContext) Todo(c *model.Cron, execTime string) {
 	task := []byte(strings.ReplaceAll(c.Task, c.Time, execTime))
 
 	var err error
-	switch c.Category {
-	case "re-dlgd": // 重试电量购电任务
+	switch Category(c.Category) {
+	case CategoryReDlgd: // 重试电量购电任务
 		err = runReDlgd(ctx, svc)
-	case "dlgd": // 电量购电任务
+	case CategoryDlgd: // 电量购电任务
 		err = runDlgd(ctx, svc, task)
-	case "holiday": // 节假日任务
+	case CategoryHoliday: // 节假日任务
 		err = runHoliday(ctx, svc, task)
-	case "weather": // 天气任务
+	case CategoryWeather: // 天气任务
 		err = runWeather(ctx, svc, task)
-	case "carbon": // 碳排放任务
+	case CategoryCarbon: // 碳排放任务
 		err = runCarbon(ctx, svc, task)
-	case "tw-carbon": // 台湾碳排放任务
+	case CategoryTwCarbon: // 台湾碳排放任务
 		err = runTwCarbon(ctx, svc, &task)
+	case CategoryTwdl: // 台湾电价任务
+		err = runTwdl(ctx, svc, &task)
 	default:
 		err = fmt.Errorf("未知的任务类型: %s", c.Category)
 	}
@@ -90,7 +94,7 @@ func (svc *ServiceContext) StartCron() {
 
 		err = svc.Cr.AddFunc(currentTask.Scheduler, func() {
 			// 检查任务是否已到开始执行时间
-			if time.Now().Unix() < currentTask.StartTime {
+			if time.Now().Before(currentTask.StartTime) {
 				return
 			}
 
@@ -103,20 +107,24 @@ func (svc *ServiceContext) StartCron() {
 
 			// 根据任务类型执行对应处理
 			var execErr error
-			switch currentTask.Category {
-			case "re-dlgd":
+			switch Category(currentTask.Category) {
+			case CategoryReDlgd:
 				execErr = runReDlgd(ctx, svc)
-			case "dlgd":
+			case CategoryDlgd:
 				execErr = runDlgd(ctx, svc, taskData)
-			case "holiday":
+			case CategoryHoliday:
 				execErr = runHoliday(ctx, svc, taskData)
-			case "weather":
+			case CategoryWeather:
 				execErr = runWeather(ctx, svc, taskData)
-			case "carbon":
+			case CategoryCarbon:
 				execErr = runCarbon(ctx, svc, taskData)
-			case "tw-carbon":
+			case CategoryTwCarbon:
 				// 将最近执行年份信息写入任务数据库中
 				execErr = runTwCarbon(ctx, svc, &taskData)
+				currentTask.Task = string(taskData)
+			case CategoryTwdl:
+				// 将最近执行文件大小信息写入任务数据库中
+				execErr = runTwdl(ctx, svc, &taskData)
 				currentTask.Task = string(taskData)
 			default:
 				execErr = fmt.Errorf("未知的任务类型: %s", currentTask.Category)

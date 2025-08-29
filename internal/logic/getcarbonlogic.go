@@ -60,6 +60,8 @@ func (l *GetCarbonLogic) GetCarbon(in *cron.CarbonReq) (*cron.CarbonRsp, error) 
 		return nil, err
 	}
 
+	// 避免频繁查询，仅缓存当天
+	l.svcCtx.CarbonModel.SaveCacheOnlyToday(l.ctx, province, in.Year, c.Id)
 	return &cron.CarbonRsp{
 		Value: c.Value,
 	}, nil
