@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"seeccloud.com/edscron/pkg/vars"
 	"seeccloud.com/edscron/pkg/x/expx"
 	"seeccloud.com/edscron/pkg/x/slicex"
-	"seeccloud.com/edscron/pkg/x/stringx"
 
 	"github.com/jinzhu/copier"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -45,62 +43,55 @@ func (l *GetPriceLogic) GetPrice(in *cron.PriceReq) (*cron.PriceRsp, error) {
 		return nil, err
 	}
 
-	// 代理购电的category以省市开头
-	area, _ := l.svcCtx.AreaModel.FindAddress(l.ctx, regexp.MustCompile(`\p{Han}+`).FindString(in.Category))
-	if len(area) == 0 {
+	if slicex.Contains(cronx.TwdlCategories, in.Category) {
 		return GetTwdlPrice(in.Category, t, l)
 	}
 
-	return GetDlgdPrice(in.Category, t, l, in)
+	return GetDlgdPrice(in.Category, t, l)
 }
 
 func GetTwdlPrice(category string, t time.Time, l *GetPriceLogic) (*cron.PriceRsp, error) {
 
-	dayStart := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
-	one, err := l.svcCtx.TwdlModel.FindOneByDayStartTimeCategory(l.ctx, dayStart, category)
+	dayStart := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
+	one, err := l.svcCtx.TwdlModel.FindOneByDayStartTimeCategory(l.ctx, dayStart.Format(vars.DatetimeFormat), category)
 	if err != nil {
 		return nil, err
 	}
 
 	holiday, _ := l.svcCtx.HolidayModel.FindOneByAreaDateCache(l.ctx, string(cronx.TaiwanArea), t.Format(vars.DateFormat))
 
-	price := one.GetPrice(t, holiday != nil && holiday.Category == string(cronx.HolidayPeakOff))
+	price := one.GetPrice(t.Format(vars.DatetimeFormat), holiday != nil && holiday.Category == string(cronx.HolidayPeakOff))
 	var rsp cron.PriceRsp
 	copier.Copy(&rsp, price)
 	return &rsp, nil
 }
 
-func GetDlgdPrice(category string, t time.Time, l *GetPriceLogic, in *cron.PriceReq) (*cron.PriceRsp, error) {
+func GetDlgdPrice(category string, t time.Time, l *GetPriceLogic) (*cron.PriceRsp, error) {
 	infos := strings.Split(category, cronx.CategorySep)
 	if len(infos) < 3 {
 		return nil, fmt.Errorf("req.Category格式错误, 正确格式: %s", model.CategoryFormatTip)
 	}
 
-	start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
-	all, err := l.svcCtx.DlgdModel.FindAllByAreaStartTimeCategoryVoltage(l.ctx, infos[0], start, infos[1], infos[2])
-	if err != nil {
-		return nil, err
-	}
-
-	var one model.Dlgd
-	if len(*all) == 0 {
-		nearlyOne, err := l.svcCtx.DlgdModel.FindOneByAreaCategoryVoltageAtNearlyStartTime(l.ctx, infos[0], start, infos[1], infos[2])
+	start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.Local)
+	one, err := l.svcCtx.DlgdModel.FindFirstByAreaStartTimeCategoryVoltage(l.ctx, infos[0], start.Format(vars.DatetimeFormat), infos[1], infos[2])
+	if err == model.ErrNotFound {
+		nearlyOne, err := l.svcCtx.DlgdModel.FindOneByAreaCategoryVoltageAtNearlyStartTime(l.ctx, infos[0], start.Format(vars.DatetimeFormat), infos[1], infos[2])
 		if err != nil || nearlyOne == nil {
 			return nil, fmt.Errorf("未找到%s>%d年%d月>%s>%s电价表", infos[0], t.Year(), t.Month(), infos[1], infos[2])
 		}
 
-		one = *nearlyOne
+		one = nearlyOne
 		one.StartTime = start
 		one.EndTime = start.AddDate(0, 1, 0)
-	} else {
-		one = (*all)[0]
-		// 阶梯电价取最低档位那条（深圳）
-		if len(*all) > 1 {
-			one = slicex.FirstOrDefFunc(*all, one, func(o model.Dlgd) bool {
-				return stringx.ContainsAny(o.Stage, "以下", "<", "<=", "≤")
-			})
-		}
+	} else if err != nil {
+		return nil, err
 	}
 
-	return l.svcCtx.GetDlgdPrice(t, &one)
+	period, err := l.svcCtx.GetDlgdPrice(t, one)
+	if err != nil {
+		return nil, err
+	}
+	var rsp cron.PriceRsp
+	copier.Copy(&rsp, period)
+	return &rsp, nil
 }

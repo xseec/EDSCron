@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/zeromicro/go-zero/core/stores/cache"
+	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"seeccloud.com/edscron/pkg/cronx"
 	"seeccloud.com/edscron/pkg/x/slicex"
+	"seeccloud.com/edscron/pkg/x/stringx"
 	"seeccloud.com/edscron/pkg/x/timex"
 )
 
@@ -27,8 +29,8 @@ type (
 	DlgdModel interface {
 		dlgdModel
 		FindCategoriesByAreas(ctx context.Context, areas ...string) (*[]string, error)
-		FindAllByAreaStartTimeCategoryVoltage(ctx context.Context, area string, startTime time.Time, category string, voltage string) (*[]Dlgd, error)
-		FindOneByAreaCategoryVoltageAtNearlyStartTime(ctx context.Context, area string, startTime time.Time, category string, voltage string) (*Dlgd, error)
+		FindFirstByAreaStartTimeCategoryVoltage(ctx context.Context, area string, startTime string, category string, voltage string) (*Dlgd, error)
+		FindOneByAreaCategoryVoltageAtNearlyStartTime(ctx context.Context, area string, startTime string, category string, voltage string) (*Dlgd, error)
 	}
 
 	customDlgdModel struct {
@@ -70,56 +72,62 @@ func (m *customDlgdModel) FindCategoriesByAreas(ctx context.Context, areas ...st
 	return nil, nil
 }
 
-func (m *customDlgdModel) FindAllByAreaStartTimeCategoryVoltage(ctx context.Context, area string, startTime time.Time, category string, voltage string) (*[]Dlgd, error) {
-	// 存在阶梯电价时返回超过一条记录（常为2条），引入缓存机制
+func (m *customDlgdModel) FindFirstByAreaStartTimeCategoryVoltage(ctx context.Context, area string, startTime string, category string, voltage string) (*Dlgd, error) {
 	key := fmt.Sprintf("%s%v:%v:%v:%v", cacheEdsCronDlgdAreaStartTimeCategoryVoltagePrefix, area, startTime, category, voltage)
-	var all []Dlgd
-	err := m.GetCacheCtx(ctx, key, &all)
-	if err == nil {
-		return &all, nil
-	} else if err != sqlx.ErrNotFound {
+	var one Dlgd
+	err := m.QueryRowIndexCtx(ctx, &one, key, m.formatPrimary, func(ctx context.Context, conn sqlx.SqlConn, v any) (any, error) {
+		q := fmt.Sprintf("select %s from %s where `area` = ? and unix_timestamp(`start_time`) = unix_timestamp(?) and `category` = ? and `voltage` = ?", dlgdRows, m.table)
+		var all []Dlgd
+		err := conn.QueryRowsCtx(ctx, &all, q, area, startTime, category, voltage)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(all) == 0 {
+			return nil, ErrNotFound
+		}
+
+		// 阶梯电价取最低一阶
+		one = slicex.FirstOrDefFunc(all, all[0], func(o Dlgd) bool {
+			return stringx.ContainsAny(o.Stage, "以下", "<", "<=", "≤")
+		})
+		return one.Id, nil
+	}, m.queryPrimary)
+
+	switch err {
+	case nil:
+		return &one, nil
+	case sqlc.ErrNotFound:
+		return nil, ErrNotFound
+	default:
 		return nil, err
 	}
-
-	q := fmt.Sprintf("select %s from %s where `area` = ? and `start_time` = ? and `category` = ? and `voltage` = ?", dlgdRows, m.table)
-	err = m.QueryRowsNoCacheCtx(ctx, &all, q, area, startTime, category, voltage)
-	if err != nil {
-		return nil, err
-	}
-
-	// 默认缓存7天过长，可能在此期间记录已更新
-	err = m.SetCacheWithExpireCtx(ctx, key, &all, time.Hour)
-	if err != nil {
-		return nil, err
-	}
-
-	return &all, nil
 }
 
-func (m *customDlgdModel) FindOneByAreaCategoryVoltageAtNearlyStartTime(ctx context.Context, area string, startTime time.Time, category string, voltage string) (*Dlgd, error) {
+func (m *customDlgdModel) FindOneByAreaCategoryVoltageAtNearlyStartTime(ctx context.Context, area string, startTime string, category string, voltage string) (*Dlgd, error) {
 	// 时间没法匹配时选最接近的一条
-	key := fmt.Sprintf("%s%v:%v:%v:%v", cacheEdsCronDlgdAreaCategoryVoltageAtNearlyStartTimePrefix, area, startTime, category, voltage)
+	key := fmt.Sprintf("%s%v:%v:%v:%v", cacheEdsCronDlgdAreaCategoryVoltageAtNearlyStartTimePrefix, area, category, voltage, startTime)
 	var one Dlgd
-	err := m.GetCacheCtx(ctx, key, &one)
-	if err == nil {
+	err := m.QueryRowIndexCtx(ctx, &one, key, m.formatPrimary, func(ctx context.Context, conn sqlx.SqlConn, v any) (any, error) {
+		q := fmt.Sprintf("select %s from %s where `area` = ? and `category` = ? and `voltage` = ? order by abs(unix_timestamp(`start_time`) - unix_timestamp(?)) limit 1", dlgdRows, m.table)
+		if err := conn.QueryRowCtx(ctx, &one, q, area, category, voltage, startTime); err != nil {
+			return nil, err
+		}
+
+		return one.Id, nil
+	}, m.queryPrimary)
+
+	keyOriginal := fmt.Sprintf("%s%v:%v:%v:%v", cacheEdsCronDlgdAreaStartTimeCategoryVoltagePrefix, area, startTime, category, voltage)
+	switch err {
+	case nil:
+		m.SetCacheWithExpireCtx(ctx, keyOriginal, &one.Id, timex.SubTomorrow())
 		return &one, nil
-	} else if err != sqlx.ErrNotFound {
+	case sqlc.ErrNotFound:
+		m.SetCacheWithExpireCtx(ctx, keyOriginal, "*", timex.SubTomorrow())
+		return nil, ErrNotFound
+	default:
 		return nil, err
 	}
-
-	q := fmt.Sprintf("select %s from %s where `area` = ? and `category` = ? and `voltage` = ? order by abs(unix_timestamp(`start_time`) - unix_timestamp(?)) limit 1", dlgdRows, m.table)
-	err = m.QueryRowNoCacheCtx(ctx, &one, q, area, category, voltage, startTime)
-	if err != nil {
-		return nil, err
-	}
-
-	// 默认缓存7天过长，可能在此期间记录已更新
-	err = m.SetCacheWithExpireCtx(ctx, key, &one, time.Hour)
-	if err != nil {
-		return nil, err
-	}
-
-	return &one, nil
 }
 
 func (d *Dlgd) GetPrice(t time.Time, holiday cronx.HolidayCategory, isWeatherActived bool) cronx.Period {
@@ -127,30 +135,30 @@ func (d *Dlgd) GetPrice(t time.Time, holiday cronx.HolidayCategory, isWeatherAct
 	// 深谷、尖段优先级高于谷段和峰段
 	if isDateActived(t, d.DeepDate, holiday, isWeatherActived) && timex.IsHourInRange(t, d.DeepHour) {
 		period = cronx.PeriodDeep
-		period.Value = d.Deep
+		period.Price = d.Deep
 		return period
 	}
 
 	if isDateActived(t, d.SharpDate, holiday, isWeatherActived) && timex.IsHourInRange(t, d.SharpHour) {
 		period = cronx.PeriodSharp
-		period.Value = d.Sharp
+		period.Price = d.Sharp
 		return period
 	}
 
 	if isDateActived(t, d.ValleyDate, holiday, isWeatherActived) && timex.IsHourInRange(t, d.ValleyHour) {
 		period = cronx.PeriodValley
-		period.Value = d.Valley
+		period.Price = d.Valley
 		return period
 	}
 
 	if isDateActived(t, d.PeakDate, holiday, isWeatherActived) && timex.IsHourInRange(t, d.PeakHour) {
 		period = cronx.PeriodPeak
-		period.Value = d.Peak
+		period.Price = d.Peak
 		return period
 	}
 
 	period = cronx.PeriodFlat
-	period.Value = d.Flat
+	period.Price = d.Flat
 	return period
 }
 

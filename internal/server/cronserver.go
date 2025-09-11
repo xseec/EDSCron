@@ -23,19 +23,13 @@ func NewCronServer(svcCtx *svc.ServiceContext) *CronServer {
 	}
 }
 
-// 获取能源可选项
-func (s *CronServer) GetEnergyOptions(ctx context.Context, in *cron.EnergyOptionsReq) (*cron.EnergyOptionsRsp, error) {
-	l := logic.NewGetEnergyOptionsLogic(ctx, s.svcCtx)
-	return l.GetEnergyOptions(in)
-}
-
 // 获取任务列表
 func (s *CronServer) GetCrons(ctx context.Context, in *cron.CronsReq) (*cron.CronsRsp, error) {
 	l := logic.NewGetCronsLogic(ctx, s.svcCtx)
 	return l.GetCrons(in)
 }
 
-// 创建任务
+// 新增任务
 func (s *CronServer) AddCron(ctx context.Context, in *cron.CronBody) (*cron.ResultRsp, error) {
 	l := logic.NewAddCronLogic(ctx, s.svcCtx)
 	return l.AddCron(in)
@@ -65,7 +59,7 @@ func (s *CronServer) GetCarbon(ctx context.Context, in *cron.CarbonReq) (*cron.C
 	return l.GetCarbon(in)
 }
 
-// 创建碳排因子
+// 新增碳排因子
 func (s *CronServer) AddCarbon(ctx context.Context, in *cron.AddCarbonReq) (*cron.ResultRsp, error) {
 	l := logic.NewAddCarbonLogic(ctx, s.svcCtx)
 	return l.AddCarbon(in)
@@ -83,7 +77,7 @@ func (s *CronServer) GetHolidays(ctx context.Context, in *cron.HolidaysReq) (*cr
 	return l.GetHolidays(in)
 }
 
-// 创建/更新假日
+// 新增/更新假日
 func (s *CronServer) AddHolidays(ctx context.Context, in *cron.AddHolidaysReq) (*cron.ResultRsp, error) {
 	l := logic.NewAddHolidaysLogic(ctx, s.svcCtx)
 	return l.AddHolidays(in)
@@ -102,7 +96,37 @@ func (s *CronServer) GetPrice(ctx context.Context, in *cron.PriceReq) (*cron.Pri
 }
 
 // 获取账单
-func (s *CronServer) GetBill(ctx context.Context, in *cron.BillReq) (*cron.BillRsp, error) {
-	l := logic.NewGetBillLogic(ctx, s.svcCtx)
-	return l.GetBill(in)
+func (s *CronServer) GetMonthlyBill(ctx context.Context, in *cron.BillReq) (*cron.BillRsp, error) {
+	l := logic.NewGetMonthlyBillLogic(ctx, s.svcCtx)
+	return l.GetMonthlyBill(in)
+}
+
+// 获取用电档案可选项
+func (s *CronServer) GetAvailableOptions(ctx context.Context, in *cron.AvailableOptionsReq) (*cron.AvailableOptionsRsp, error) {
+	l := logic.NewGetAvailableOptionsLogic(ctx, s.svcCtx)
+	return l.GetAvailableOptions(in)
+}
+
+// 获取用电档案
+func (s *CronServer) GetUserOption(ctx context.Context, in *cron.GetUserOptionReq) (*cron.UserOptionBody, error) {
+	l := logic.NewGetUserOptionLogic(ctx, s.svcCtx)
+	return l.GetUserOption(in)
+}
+
+// 新增用电档案
+func (s *CronServer) AddUserOption(ctx context.Context, in *cron.UserOptionBody) (*cron.ResultRsp, error) {
+	l := logic.NewAddUserOptionLogic(ctx, s.svcCtx)
+	return l.AddUserOption(in)
+}
+
+// 更新用电档案
+func (s *CronServer) UpdateUserOption(ctx context.Context, in *cron.UserOptionBody) (*cron.ResultRsp, error) {
+	l := logic.NewUpdateUserOptionLogic(ctx, s.svcCtx)
+	return l.UpdateUserOption(in)
+}
+
+// 删除用电档案
+func (s *CronServer) DeleteUserOption(ctx context.Context, in *cron.DelReq) (*cron.ResultRsp, error) {
+	l := logic.NewDeleteUserOptionLogic(ctx, s.svcCtx)
+	return l.DeleteUserOption(in)
 }

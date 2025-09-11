@@ -10,7 +10,8 @@ const (
 
 	dateFormat = "2006-01-02" // 日期格式
 
-	fieldValueSep = "," // 字段值分隔符
+	fieldSubSep      = "," // 字段值分隔符
+	fieldKeyValueSep = ":" // 字段值分隔符
 
 	formatExcel OutputFormat = "excel" // Excel格式输出
 	formatWord  OutputFormat = "word"  // Word格式输出

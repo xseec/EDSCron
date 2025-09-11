@@ -1,17 +1,37 @@
 package cronx
 
 import (
+	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/zeromicro/go-zero/core/mathx"
 )
 
 // Range 定义数值范围的结构体
 type Range struct {
-	Min    int  // 最小值
-	Max    int  // 最大值
-	HasMin bool // 是否包含最小值
-	HasMax bool // 是否包含最大值
+	Min int // 最小值(包含)
+	Max int // 最大值(包含)
+}
+
+// Contains 检查给定值是否在范围内
+func (r Range) Contains(v int) bool {
+	if r.Min <= v && v <= r.Max {
+		return true
+	}
+	return false
+}
+
+// Stage 计算给定值在范围内的阶段跨度
+func (r Range) Stage(n int) int {
+	if n < r.Min {
+		return 0
+	}
+
+	// 因r.Min包含，需要+1
+	return mathx.MinInt(r.Max-r.Min, n-r.Min) + 1
 }
 
 // adjustBoundarySteps 自适应阶梯电价的边界描述
@@ -45,6 +65,39 @@ func adjustBoundarySteps(text, stageSpe string) []string {
 	return steps
 }
 
+// GetStageFee 计算阶梯电价的额外费用(不含首阶)
+func GetStageFee(stage string, total float64) float64 {
+	steps := adjustBoundarySteps(stage, fieldSubSep)
+	valueReg := regexp.MustCompile(`\d+(.\d+)?`)
+	var baseValue, stageFee float64
+	for _, step := range steps {
+		kv := strings.Split(step, fieldKeyValueSep)
+		if len(kv) != 2 {
+			continue
+		}
+
+		key, value := kv[0], kv[1]
+		rng, ok := ExtractRange(key)
+		if !ok {
+			continue
+		}
+
+		str := valueReg.FindString(value)
+		if len(str) == 0 {
+			continue
+		}
+
+		stepVal, _ := strconv.ParseFloat(str, 64)
+
+		if rng.Min == math.MinInt {
+			baseValue = stepVal
+		} else {
+			stageFee += (stepVal - baseValue) * float64(rng.Stage(int(total)))
+		}
+	}
+	return stageFee
+}
+
 func GetStagePrice(text, stageSpe, valueSep string, total int) (float64, bool) {
 	steps := adjustBoundarySteps(text, stageSpe)
 	for _, step := range steps {
@@ -58,6 +111,10 @@ func GetStagePrice(text, stageSpe, valueSep string, total int) (float64, bool) {
 			continue
 		}
 
+		if total == 1001 {
+			fmt.Println(rng, total, rng.Contains(total))
+		}
+
 		if rng.Contains(total) {
 			val, err := strconv.ParseFloat(values[1], 64)
 			if err != nil {
@@ -69,19 +126,6 @@ func GetStagePrice(text, stageSpe, valueSep string, total int) (float64, bool) {
 	}
 
 	return 0, false
-}
-
-// Contains 检查给定值是否在范围内
-func (r Range) Contains(v int) bool {
-	switch {
-	case r.HasMin && v < r.Min, // 有最小值且小于最小值
-		!r.HasMin && v <= r.Min, // 无最小值且小于等于最小值
-		r.HasMax && v > r.Max,   // 有最大值且大于最大值
-		!r.HasMax && v >= r.Max: // 无最大值且大于等于最大值
-		return false
-	default:
-		return true
-	}
 }
 
 // ExtractRange 从自然语言文本中提取数值范围
@@ -178,10 +222,8 @@ func handleSimpleRange(matches []string) (Range, bool) {
 		return Range{}, false
 	}
 	return Range{
-		Min:    min,
-		Max:    max,
-		HasMin: true,
-		HasMax: true,
+		Min: min,
+		Max: max,
 	}, true
 }
 
@@ -193,10 +235,8 @@ func handleFullRange(matches []string) (Range, bool) {
 		return Range{}, false
 	}
 	return Range{
-		Min:    min,
-		Max:    max,
-		HasMin: true,
-		HasMax: true,
+		Min: min,
+		Max: max,
 	}, true
 }
 
@@ -208,10 +248,8 @@ func handleRangeWithUnit(matches []string) (Range, bool) {
 		return Range{}, false
 	}
 	return Range{
-		Min:    min,
-		Max:    max,
-		HasMin: true,
-		HasMax: true,
+		Min: min,
+		Max: max,
 	}, true
 }
 
@@ -222,8 +260,8 @@ func handleAboveInclusive(matches []string) (Range, bool) {
 		return Range{}, false
 	}
 	return Range{
-		Min:    val,
-		HasMin: true,
+		Min: val,
+		Max: math.MaxInt,
 	}, true
 }
 
@@ -234,8 +272,8 @@ func handleAbove(matches []string) (Range, bool) {
 		return Range{}, false
 	}
 	return Range{
-		Min:    val + 1, // 大于100实际是从101开始
-		HasMin: true,
+		Min: val + 1, // 大于100实际是从101开始
+		Max: math.MaxInt,
 	}, true
 }
 
@@ -246,8 +284,8 @@ func handleBelowInclusive(matches []string) (Range, bool) {
 		return Range{}, false
 	}
 	return Range{
-		Max:    val,
-		HasMax: true,
+		Min: math.MinInt,
+		Max: val,
 	}, true
 }
 
@@ -258,8 +296,8 @@ func handleBelow(matches []string) (Range, bool) {
 		return Range{}, false
 	}
 	return Range{
-		Max:    val - 1, // 小于100实际是到99
-		HasMax: true,
+		Min: math.MinInt,
+		Max: val - 1, // 小于100实际是到99
 	}, true
 }
 
@@ -270,9 +308,7 @@ func handleSingleValue(matches []string) (Range, bool) {
 		return Range{}, false
 	}
 	return Range{
-		Min:    val,
-		Max:    val,
-		HasMin: true,
-		HasMax: true,
+		Min: val,
+		Max: val,
 	}, true
 }

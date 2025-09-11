@@ -20,13 +20,13 @@ import (
 type Category string
 
 const (
-	CategoryDlgd     Category = "dlgd"      // 电量购电任务
-	CategoryHoliday  Category = "holiday"   // 节假日任务
-	CategoryWeather  Category = "weather"   // 天气任务
-	CategoryCarbon   Category = "carbon"    // 碳排放任务
-	CategoryTwCarbon Category = "tw-carbon" // 台湾碳排放任务
-	CategoryTwdl     Category = "twdl"      // 台湾电价任务
-	CategoryReDlgd   Category = "re-dlgd"   // 重试代理购电任务
+	CategoryDlgd     Category = "dlgd"      // 代理购电
+	CategoryHoliday  Category = "holiday"   // 节假日
+	CategoryWeather  Category = "weather"   // 天气
+	CategoryCarbon   Category = "carbon"    // 大陆碳排因子
+	CategoryTwCarbon Category = "tw-carbon" // 台湾碳排因子
+	CategoryTwdl     Category = "twdl"      // 台湾电价
+	CategoryReDlgd   Category = "re-dlgd"   // 重试代理购电
 )
 
 // Format 格式化并验证Cron任务配置
@@ -242,7 +242,7 @@ func runTwdl(ctx context.Context, svc *ServiceContext, task *[]byte) error {
 	}
 
 	for _, v := range holidays {
-		old, _ := svc.HolidayModel.FindOneByAreaDateCache(ctx, v.Area, v.Date)
+		old, _ := svc.HolidayModel.FindOneByAreaDate(ctx, v.Area, v.Date)
 		if old != nil {
 			v.Id = old.Id
 			err = svc.HolidayModel.Update(ctx, &v)
@@ -362,7 +362,7 @@ func runHoliday(ctx context.Context, svc *ServiceContext, task []byte) error {
 	}
 
 	for _, v := range rows {
-		old, _ := svc.HolidayModel.FindOneByAreaDateCache(ctx, v.Area, v.Date)
+		old, _ := svc.HolidayModel.FindOneByAreaDate(ctx, v.Area, v.Date)
 		if old != nil {
 			v.Id = old.Id
 			err = svc.HolidayModel.Update(ctx, &v)

@@ -39,7 +39,7 @@ func (row *DlgdRow) format(unit float64) {
 	for i := 0; i < rType.NumField(); i++ {
 		// 处理字符串字段：去除末尾分隔符
 		if rValue.Field(i).Kind() == reflect.String {
-			rValue.Field(i).SetString(strings.Trim(rValue.Field(i).String(), fieldValueSep))
+			rValue.Field(i).SetString(strings.Trim(rValue.Field(i).String(), fieldSubSep))
 			continue
 		}
 
@@ -146,8 +146,8 @@ func (row *DlgdRow) evaluate(titles, values []string) {
 				case reflect.String:
 					// 字符串类型处理（深圳特殊情况可能跨多列）
 					if !strings.Contains(dlValue.Field(i).String(), values[index]) {
-						s := dlValue.Field(i).String() + fieldValueSep + values[index]
-						dlValue.Field(i).SetString(strings.Trim(s, fieldValueSep))
+						s := dlValue.Field(i).String() + fieldSubSep + values[index]
+						dlValue.Field(i).SetString(strings.Trim(s, fieldSubSep))
 					}
 				}
 			}
@@ -163,7 +163,7 @@ func (row *DlgdRow) evaluate(titles, values []string) {
 //	Voltage: "10千伏高供低计(380V/220V计量)"
 //	Stage: "250kW·h及以下／千伏安·月"
 func (row *DlgdRow) splitSZCategory() {
-	infos := strings.Split(row.Category, fieldValueSep)
+	infos := strings.Split(row.Category, fieldSubSep)
 	if len(infos) == 3 && len(row.Voltage) == 0 && len(row.Stage) == 0 {
 		row.Category = infos[0]
 		row.Voltage = infos[1]

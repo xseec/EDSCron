@@ -14,36 +14,36 @@ import (
 )
 
 type (
-	AddCarbonReq     = cron.AddCarbonReq
-	AddHolidaysReq   = cron.AddHolidaysReq
-	BillDetail       = cron.BillDetail
-	BillReq          = cron.BillReq
-	BillRsp          = cron.BillRsp
-	CarbonReq        = cron.CarbonReq
-	CarbonRsp        = cron.CarbonRsp
-	CronBody         = cron.CronBody
-	CronsReq         = cron.CronsReq
-	CronsRsp         = cron.CronsRsp
-	DelReq           = cron.DelReq
-	EnergyOptionsReq = cron.EnergyOptionsReq
-	EnergyOptionsRsp = cron.EnergyOptionsRsp
-	Holiday          = cron.Holiday
-	HolidaysReq      = cron.HolidaysReq
-	HolidaysRsp      = cron.HolidaysRsp
-	PriceReq         = cron.PriceReq
-	PriceRsp         = cron.PriceRsp
-	ResultRsp        = cron.ResultRsp
-	TodoCronReq      = cron.TodoCronReq
-	Weather          = cron.Weather
-	WeathersReq      = cron.WeathersReq
-	WeathersRsp      = cron.WeathersRsp
+	AddCarbonReq        = cron.AddCarbonReq
+	AddHolidaysReq      = cron.AddHolidaysReq
+	AvailableOptionsReq = cron.AvailableOptionsReq
+	AvailableOptionsRsp = cron.AvailableOptionsRsp
+	BillDetail          = cron.BillDetail
+	BillReq             = cron.BillReq
+	BillRsp             = cron.BillRsp
+	CarbonReq           = cron.CarbonReq
+	CarbonRsp           = cron.CarbonRsp
+	CronBody            = cron.CronBody
+	CronsReq            = cron.CronsReq
+	CronsRsp            = cron.CronsRsp
+	DelReq              = cron.DelReq
+	GetUserOptionReq    = cron.GetUserOptionReq
+	Holiday             = cron.Holiday
+	HolidaysReq         = cron.HolidaysReq
+	HolidaysRsp         = cron.HolidaysRsp
+	PriceReq            = cron.PriceReq
+	PriceRsp            = cron.PriceRsp
+	ResultRsp           = cron.ResultRsp
+	TodoCronReq         = cron.TodoCronReq
+	UserOptionBody      = cron.UserOptionBody
+	Weather             = cron.Weather
+	WeathersReq         = cron.WeathersReq
+	WeathersRsp         = cron.WeathersRsp
 
 	Cron interface {
-		// 获取能源可选项
-		GetEnergyOptions(ctx context.Context, in *EnergyOptionsReq, opts ...grpc.CallOption) (*EnergyOptionsRsp, error)
 		// 获取任务列表
 		GetCrons(ctx context.Context, in *CronsReq, opts ...grpc.CallOption) (*CronsRsp, error)
-		// 创建任务
+		// 新增任务
 		AddCron(ctx context.Context, in *CronBody, opts ...grpc.CallOption) (*ResultRsp, error)
 		// 更新任务
 		UpdateCron(ctx context.Context, in *CronBody, opts ...grpc.CallOption) (*ResultRsp, error)
@@ -53,20 +53,30 @@ type (
 		TodoCron(ctx context.Context, in *TodoCronReq, opts ...grpc.CallOption) (*ResultRsp, error)
 		// 获取碳排因子
 		GetCarbon(ctx context.Context, in *CarbonReq, opts ...grpc.CallOption) (*CarbonRsp, error)
-		// 创建碳排因子
+		// 新增碳排因子
 		AddCarbon(ctx context.Context, in *AddCarbonReq, opts ...grpc.CallOption) (*ResultRsp, error)
 		// 获取天气预报列表
 		GetWeathers(ctx context.Context, in *WeathersReq, opts ...grpc.CallOption) (*WeathersRsp, error)
 		// 获取假日列表
 		GetHolidays(ctx context.Context, in *HolidaysReq, opts ...grpc.CallOption) (*HolidaysRsp, error)
-		// 创建/更新假日
+		// 新增/更新假日
 		AddHolidays(ctx context.Context, in *AddHolidaysReq, opts ...grpc.CallOption) (*ResultRsp, error)
 		// 删除假日
 		DeleteHoliday(ctx context.Context, in *DelReq, opts ...grpc.CallOption) (*ResultRsp, error)
 		// 获取电价
 		GetPrice(ctx context.Context, in *PriceReq, opts ...grpc.CallOption) (*PriceRsp, error)
 		// 获取账单
-		GetBill(ctx context.Context, in *BillReq, opts ...grpc.CallOption) (*BillRsp, error)
+		GetMonthlyBill(ctx context.Context, in *BillReq, opts ...grpc.CallOption) (*BillRsp, error)
+		// 获取用电档案可选项
+		GetAvailableOptions(ctx context.Context, in *AvailableOptionsReq, opts ...grpc.CallOption) (*AvailableOptionsRsp, error)
+		// 获取用电档案
+		GetUserOption(ctx context.Context, in *GetUserOptionReq, opts ...grpc.CallOption) (*UserOptionBody, error)
+		// 新增用电档案
+		AddUserOption(ctx context.Context, in *UserOptionBody, opts ...grpc.CallOption) (*ResultRsp, error)
+		// 更新用电档案
+		UpdateUserOption(ctx context.Context, in *UserOptionBody, opts ...grpc.CallOption) (*ResultRsp, error)
+		// 删除用电档案
+		DeleteUserOption(ctx context.Context, in *DelReq, opts ...grpc.CallOption) (*ResultRsp, error)
 	}
 
 	defaultCron struct {
@@ -80,19 +90,13 @@ func NewCron(cli zrpc.Client) Cron {
 	}
 }
 
-// 获取能源可选项
-func (m *defaultCron) GetEnergyOptions(ctx context.Context, in *EnergyOptionsReq, opts ...grpc.CallOption) (*EnergyOptionsRsp, error) {
-	client := cron.NewCronClient(m.cli.Conn())
-	return client.GetEnergyOptions(ctx, in, opts...)
-}
-
 // 获取任务列表
 func (m *defaultCron) GetCrons(ctx context.Context, in *CronsReq, opts ...grpc.CallOption) (*CronsRsp, error) {
 	client := cron.NewCronClient(m.cli.Conn())
 	return client.GetCrons(ctx, in, opts...)
 }
 
-// 创建任务
+// 新增任务
 func (m *defaultCron) AddCron(ctx context.Context, in *CronBody, opts ...grpc.CallOption) (*ResultRsp, error) {
 	client := cron.NewCronClient(m.cli.Conn())
 	return client.AddCron(ctx, in, opts...)
@@ -122,7 +126,7 @@ func (m *defaultCron) GetCarbon(ctx context.Context, in *CarbonReq, opts ...grpc
 	return client.GetCarbon(ctx, in, opts...)
 }
 
-// 创建碳排因子
+// 新增碳排因子
 func (m *defaultCron) AddCarbon(ctx context.Context, in *AddCarbonReq, opts ...grpc.CallOption) (*ResultRsp, error) {
 	client := cron.NewCronClient(m.cli.Conn())
 	return client.AddCarbon(ctx, in, opts...)
@@ -140,7 +144,7 @@ func (m *defaultCron) GetHolidays(ctx context.Context, in *HolidaysReq, opts ...
 	return client.GetHolidays(ctx, in, opts...)
 }
 
-// 创建/更新假日
+// 新增/更新假日
 func (m *defaultCron) AddHolidays(ctx context.Context, in *AddHolidaysReq, opts ...grpc.CallOption) (*ResultRsp, error) {
 	client := cron.NewCronClient(m.cli.Conn())
 	return client.AddHolidays(ctx, in, opts...)
@@ -159,7 +163,37 @@ func (m *defaultCron) GetPrice(ctx context.Context, in *PriceReq, opts ...grpc.C
 }
 
 // 获取账单
-func (m *defaultCron) GetBill(ctx context.Context, in *BillReq, opts ...grpc.CallOption) (*BillRsp, error) {
+func (m *defaultCron) GetMonthlyBill(ctx context.Context, in *BillReq, opts ...grpc.CallOption) (*BillRsp, error) {
 	client := cron.NewCronClient(m.cli.Conn())
-	return client.GetBill(ctx, in, opts...)
+	return client.GetMonthlyBill(ctx, in, opts...)
+}
+
+// 获取用电档案可选项
+func (m *defaultCron) GetAvailableOptions(ctx context.Context, in *AvailableOptionsReq, opts ...grpc.CallOption) (*AvailableOptionsRsp, error) {
+	client := cron.NewCronClient(m.cli.Conn())
+	return client.GetAvailableOptions(ctx, in, opts...)
+}
+
+// 获取用电档案
+func (m *defaultCron) GetUserOption(ctx context.Context, in *GetUserOptionReq, opts ...grpc.CallOption) (*UserOptionBody, error) {
+	client := cron.NewCronClient(m.cli.Conn())
+	return client.GetUserOption(ctx, in, opts...)
+}
+
+// 新增用电档案
+func (m *defaultCron) AddUserOption(ctx context.Context, in *UserOptionBody, opts ...grpc.CallOption) (*ResultRsp, error) {
+	client := cron.NewCronClient(m.cli.Conn())
+	return client.AddUserOption(ctx, in, opts...)
+}
+
+// 更新用电档案
+func (m *defaultCron) UpdateUserOption(ctx context.Context, in *UserOptionBody, opts ...grpc.CallOption) (*ResultRsp, error) {
+	client := cron.NewCronClient(m.cli.Conn())
+	return client.UpdateUserOption(ctx, in, opts...)
+}
+
+// 删除用电档案
+func (m *defaultCron) DeleteUserOption(ctx context.Context, in *DelReq, opts ...grpc.CallOption) (*ResultRsp, error) {
+	client := cron.NewCronClient(m.cli.Conn())
+	return client.DeleteUserOption(ctx, in, opts...)
 }

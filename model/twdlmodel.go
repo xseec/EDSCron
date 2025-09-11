@@ -10,6 +10,7 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"seeccloud.com/edscron/pkg/cronx"
+	"seeccloud.com/edscron/pkg/vars"
 	"seeccloud.com/edscron/pkg/x/timex"
 )
 
@@ -23,7 +24,7 @@ type (
 	// and implement the added methods in customTwdlModel.
 	TwdlModel interface {
 		twdlModel
-		FindOneByDayStartTimeCategory(ctx context.Context, time time.Time, category string) (*Twdl, error)
+		FindOneByDayStartTimeCategory(ctx context.Context, time string, category string) (*Twdl, error)
 		FindCategories(ctx context.Context) (*[]string, error)
 	}
 
@@ -49,7 +50,7 @@ func (m *customTwdlModel) FindCategories(ctx context.Context) (*[]string, error)
 	return &values, nil
 }
 
-func (m *customTwdlModel) FindOneByDayStartTimeCategory(ctx context.Context, dayStart time.Time, category string) (*Twdl, error) {
+func (m *customTwdlModel) FindOneByDayStartTimeCategory(ctx context.Context, dayStart string, category string) (*Twdl, error) {
 	edsCronTwdlTimeCategoryKey := fmt.Sprintf("%s%v:%v", cacheEdsCronTwdlDayStartTimeCategoryPrefix, dayStart, category)
 	var value Twdl
 	err := m.GetCacheCtx(ctx, edsCronTwdlTimeCategoryKey, &value)
@@ -67,9 +68,14 @@ func (m *customTwdlModel) FindOneByDayStartTimeCategory(ctx context.Context, day
 		return nil, err
 	}
 
+	t, err := time.ParseInLocation(vars.DatetimeFormat, dayStart, time.Local)
+	if err != nil {
+		return nil, err
+	}
+
 	// 基于日期选择夏月或非夏月记录
 	for _, v := range values {
-		if timex.IsDateInRange(dayStart, v.Date) {
+		if timex.IsDateInRange(t, v.Date) {
 			m.SetCacheCtx(ctx, edsCronTwdlTimeCategoryKey, v)
 			return &v, nil
 		}
@@ -78,13 +84,18 @@ func (m *customTwdlModel) FindOneByDayStartTimeCategory(ctx context.Context, day
 	return nil, ErrNotFound
 }
 
-func (d *Twdl) GetPrice(t time.Time, isOffPeakDay bool) cronx.Period {
+func (d *Twdl) GetPrice(now string, isOffPeakDay bool) cronx.Period {
 	var period cronx.Period
+	t, err := time.ParseInLocation(vars.DatetimeFormat, now, time.Local)
+	if err != nil {
+		return period
+	}
+
 	// 周日或离峰日
 	if t.Weekday() == time.Sunday || isOffPeakDay {
 		if d.SunOffPeak > 0 {
 			period = cronx.PeriodSunOffPeak
-			period.Value = d.SunOffPeak
+			period.Price = d.SunOffPeak
 			return period
 		}
 	}
@@ -94,13 +105,13 @@ func (d *Twdl) GetPrice(t time.Time, isOffPeakDay bool) cronx.Period {
 		if timex.IsHourInRange(t, d.SatOffPeakHour) {
 			if d.SatOffPeak > 0 {
 				period = cronx.PeriodSatOffPeak
-				period.Value = d.SatOffPeak
+				period.Price = d.SatOffPeak
 				return period
 			}
 		} else if timex.IsHourInRange(t, d.SatSemiPeakHour) {
 			if d.SatSemiPeak > 0 {
 				period = cronx.PeriodSatSemiPeak
-				period.Value = d.SatSemiPeak
+				period.Price = d.SatSemiPeak
 				return period
 			}
 		}
@@ -111,19 +122,19 @@ func (d *Twdl) GetPrice(t time.Time, isOffPeakDay bool) cronx.Period {
 		if timex.IsHourInRange(t, d.WeekdayOffPeakHour) {
 			if d.WeekdayOffPeak > 0 {
 				period = cronx.PeriodWeekdayOffPeak
-				period.Value = d.WeekdayOffPeak
+				period.Price = d.WeekdayOffPeak
 				return period
 			}
 		} else if timex.IsHourInRange(t, d.WeekdaySemiPeakHour) {
 			if d.WeekdaySemiPeak > 0 {
 				period = cronx.PeriodWeekdaySemiPeak
-				period.Value = d.WeekdaySemiPeak
+				period.Price = d.WeekdaySemiPeak
 				return period
 			}
 		} else if timex.IsHourInRange(t, d.WeekdayPeakHour) {
 			if d.WeekdayPeak > 0 {
 				period = cronx.PeriodWeekdayPeak
-				period.Value = d.WeekdayPeak
+				period.Price = d.WeekdayPeak
 				return period
 			}
 		}
@@ -132,7 +143,7 @@ func (d *Twdl) GetPrice(t time.Time, isOffPeakDay bool) cronx.Period {
 	// 基准电价
 	period = cronx.PeriodStandard
 	if d.Standard > 0 {
-		period.Value = d.Standard
+		period.Price = d.Standard
 		return period
 	}
 
@@ -141,7 +152,7 @@ func (d *Twdl) GetPrice(t time.Time, isOffPeakDay bool) cronx.Period {
 	if len(subs) == 2 {
 		value, _ := strconv.ParseFloat(subs[1], 64)
 		if value > 0 {
-			period.Value = value
+			period.Price = value
 			return period
 		}
 	}

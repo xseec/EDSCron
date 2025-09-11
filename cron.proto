@@ -1,199 +1,233 @@
 syntax = "proto3";
 
 package cron;
-option go_package="./cron";
+option go_package = "./cron";
 
 service Cron {
-  // 获取能源可选项
-  rpc GetEnergyOptions(EnergyOptionsReq) returns(EnergyOptionsRsp);
-
   // 获取任务列表
-  rpc GetCrons(CronsReq) returns(CronsRsp);
+  rpc GetCrons(CronsReq)            returns (CronsRsp);
 
-  // 创建任务
-  rpc AddCron(CronBody) returns(ResultRsp);
+  // 新增任务
+  rpc AddCron(CronBody)             returns (ResultRsp);
 
   // 更新任务
-  rpc UpdateCron(CronBody) returns(ResultRsp);
+  rpc UpdateCron(CronBody)          returns (ResultRsp);
 
   // 删除任务
-  rpc DeleteCron(DelReq) returns(ResultRsp);
+  rpc DeleteCron(DelReq)            returns (ResultRsp);
 
   // 执行任务
-  rpc TodoCron(TodoCronReq) returns(ResultRsp);
+  rpc TodoCron(TodoCronReq)         returns (ResultRsp);
 
   // 获取碳排因子
-  rpc GetCarbon(CarbonReq) returns(CarbonRsp);
+  rpc GetCarbon(CarbonReq)          returns (CarbonRsp);
 
-  // 创建碳排因子
-  rpc AddCarbon(AddCarbonReq) returns(ResultRsp);
+  // 新增碳排因子
+  rpc AddCarbon(AddCarbonReq)       returns (ResultRsp);
 
   // 获取天气预报列表
-  rpc GetWeathers(WeathersReq) returns(WeathersRsp);
+  rpc GetWeathers(WeathersReq)      returns (WeathersRsp);
 
   // 获取假日列表
-  rpc GetHolidays(HolidaysReq) returns(HolidaysRsp);
+  rpc GetHolidays(HolidaysReq)      returns (HolidaysRsp);
 
-  // 创建/更新假日
-  rpc AddHolidays(AddHolidaysReq) returns (ResultRsp);
+  // 新增/更新假日
+  rpc AddHolidays(AddHolidaysReq)   returns (ResultRsp);
 
   // 删除假日
-  rpc DeleteHoliday(DelReq) returns(ResultRsp);
+  rpc DeleteHoliday(DelReq)         returns (ResultRsp);
 
   // 获取电价
-  rpc GetPrice(PriceReq) returns(PriceRsp);
+  rpc GetPrice(PriceReq)            returns (PriceRsp);
 
   // 获取账单
-  rpc GetBill(BillReq) returns(BillRsp);
+  rpc GetMonthlyBill(BillReq)       returns (BillRsp);
+  
+  // 获取用电档案可选项
+  rpc GetAvailableOptions(AvailableOptionsReq) returns (AvailableOptionsRsp);
+
+  // 获取用电档案
+  rpc GetUserOption(GetUserOptionReq) returns (UserOptionBody);
+
+  // 新增用电档案
+  rpc AddUserOption(UserOptionBody)  returns (ResultRsp);
+
+  // 更新用电档案
+  rpc UpdateUserOption(UserOptionBody) returns (ResultRsp);
+
+  // 删除用电档案
+  rpc DeleteUserOption(DelReq)      returns (ResultRsp);
 }
 
 
-/**********公共结构体**********/
+/********** 公共结构体 **********/
 
 message DelReq {
-  int64 id = 1;
+  int64 id = 1;                     // 
 }
 
 message ResultRsp {
-  string message = 1;
+  string message = 1;               // 
 }
 
 
-/**********能源可选项**********/
-
-message EnergyOptionsReq {
-  string address = 1; // 用户地址
-}
-
-message EnergyOptionsRsp{
-  repeated string categories = 1; // 电压等级列表；例，["工商业,两部制>35千伏"]
-  repeated double powerFactors = 2; // 功率因素标准值列表；例，[0.8, 0.85, 0.9]
-}
-
-
-/**********任务**********/
+/********** 任务 **********/
 
 message CronBody {
-  string category = 1;  // 任务类别；例，["dlgd","holiday","weather","carbon"]
-  string scheduler = 2; // 触发时间，按cron表达式解析
-  string task = 3; // 任务详情，json格式
-  string time = 4; // 时间参数，用任务目标时间代替task中存在的时间参数
-  string comment = 5; // 备注说明
-  int64 startTime = 6; // 任务生效的起始时间
-  string deltaTime = 7; // 执行任务后，下期起始的时间间隔，格式如“y,d,M,h,m,s”
-  int64 id = 8;
+  string category = 1;              // 任务类别，如："dlgd","holiday","weather","carbon"
+  string scheduler = 2;             // 触发时间，按cron表达式解析
+  string task = 3;                  // 任务详情，json格式
+  string time = 4;                  // 时间参数，用任务目标时间代替task中存在的时间参数
+  string comment = 5;               // 备注说明
+  int64 startTime = 6;              // 起始时间，在此之前任务不会执行
+  string deltaTime = 7;             // 下期任务时间间隔，格式如“y,d,M,h,m,s”
+  int64 id = 8;                     // 
 }
 
-message CronsReq{}
+message CronsReq {}
 
 message CronsRsp {
-  repeated CronBody crons = 1;
+  repeated CronBody crons = 1;      // 任务列表
 }
 
 message TodoCronReq {
-  int64 id = 1;
-  string time = 2;
+  int64 id = 1;                     // 任务ID
+  string time = 2;                  // 任务目标时间
 }
 
 
-/**********碳排因子**********/
+/********** 碳排因子 **********/
 
 message CarbonReq {
-  string address = 1; // 用户地址
-  int64 year = 2;
+  string address = 1;               // 用户地址
+  int64 year = 2;                   // 
 }
 
 message CarbonRsp {
-  double value = 1;
+  double value = 1;                 // 
 }
 
 message AddCarbonReq {
-  string area = 1;
-  int64 year = 2;
-  double value = 3;
+  string area = 1;                  // 
+  int64 year = 2;                   // 
+  double value = 3;                 // 
 }
 
 
-/**********天气预报**********/
+/********** 天气预报 **********/
 
 message WeathersReq {
-  string address = 1; // 用户地址
-  string date = 2; // 开始日期
-  int64 size = 3; // 获取天数
+  string address = 1;               // 用户地址
+  string date = 2;                  // 开始日期
+  int64 size = 3;                   // 获取天数
 }
 
 message Weather {
-  string date = 1;
-  string dayWeather = 2; // 白日天气
-  double dayTemp = 3; // 白日气温
-  string nightWeather = 4; // 夜间天气
-  double nightTemp = 5; // 夜间气温
+  string date = 1;                  // 
+  string dayWeather = 2;            // 白日天气
+  double dayTemp = 3;               // 白日气温
+  string nightWeather = 4;          // 夜间天气
+  double nightTemp = 5;             // 夜间气温
 }
 
 message WeathersRsp {
-  repeated Weather weathers = 1;
+  repeated Weather weathers = 1;    // 
 }
 
 
-/**********假日**********/
+/********** 假日 **********/
 
-message HolidaysReq{
-  string address = 1; // 用户地址
-  int64 year = 2;
+message HolidaysReq {
+  string address = 1;               // 用户地址
+  int64 year = 2;                   // 
 }
 
-message Holiday{
-  int64 id = 1;
-  string date = 2;
-  string category = 3; // 假日类别：假日、调休工作日
-  string detail = 4;
+message Holiday {
+  int64 id = 1;                     // 
+  string date = 2;                  // 
+  string category = 3;              // 假日类别：假日、调休工作日
+  string detail = 4;                // 
 }
 
-message HolidaysRsp{
-  repeated Holiday holidays = 1;
+message HolidaysRsp {
+  repeated Holiday holidays = 1;    // 
 }
 
 message AddHolidaysReq {
-  string address = 1; // 用户地址
-  repeated Holiday holidays = 2;
+  string address = 1;               // 用户地址
+  repeated Holiday holidays = 2;    // 
 }
 
 
-/**********代理购电**********/
+/********** 电价&账单 **********/
 
-message PriceReq{
-  string category = 1; // 用户电压等级
-  string time = 2;
+message PriceReq {
+  string category = 1;              // 用电类别，例："福建>工商业,两部制>1-10（20）千伏"
+  string time = 2;                  // 时间节点，例："2025-08-01 00:00:00"
 }
 
-message PriceRsp{
-  string name = 1; // 电价时段
-  double value = 2; // 电价
-  string desc = 3;  // 时段文本
-  string color = 4; // 颜色
-  string comment = 5; // 备注说明，如存在阶梯电价
+message PriceRsp {
+  string name = 1;                  // 所属时段，例："flat"
+  double price = 2;                 // 时段电价，例：1.0
+  string desc = 3;                  // 时段描述，例："平段"
+  string color = 4;                 // 时段色块，例："#3498DB"
 }
 
-message BillReq{
-  string category = 1; // 用户电压等级
-  double powerFactor = 2; // 功率因素标准
-  double demand = 3; // 用户需量
-  double capacity = 4; // 用户容量
-  string time = 5; // 查询起始时间
-  repeated double ep30ms = 6; // 30min有功电能列表
-  double eqTotal = 7; // 总无功电能，计算功率因素用
+message BillReq {
+  string account = 1;               // 工程ID
+  string area = 2;                  // 工程区域，可选区域名、支路名或设备ID等关键字，sql用like查询
+  string month = 3;                 // 按月查询，例："2025-08"
+  repeated double ep30ms = 4;       // 30min有功电能列表
+  double eqTotal = 5;               // 总无功电能，计算功率因素调整电费
 }
 
-message BillDetail{
-  string period = 1; // 峰谷时段
-  double usage = 2; // 电量
-  double bill = 3; // 电价
+message BillDetail {
+  string name = 1;                  // 所属时段，例："flat"
+  double price = 2;                 // 时段电价，例：1.0
+  string desc = 3;                  // 时段描述，例："平段"
+  string color = 4;                 // 时段色块，例："#3498DB"
+  double usage = 5;                 // 所用电量，例：100.0
 }
 
-message BillRsp{
-  double total = 1; // 总电费
-  double basic = 2; // 基础电费
-  double usage = 3; // 用量电费
-  double powerFactor = 4; // 力调电费
-  repeated BillDetail details = 5; // 峰谷分时电量电费列表
+message BillRsp {
+  double fee = 1;                   // 本期电费
+  double basicFee = 2;              // 基础电费
+  double usageFee = 3;              // 电量电费
+  double pfFee = 4;                 // 功率因素调整电费
+  double stageFee = 5;              // 阶梯电费
+  double usage = 6;                 // 本期电量
+  repeated BillDetail details = 7;  // 峰谷分时电量电费列表
+}
+
+
+/********** 用电档案 **********/
+
+message AvailableOptionsReq {
+  string address = 1;               // 工程地址，需包含省份、城市、区县信息，示例："福建省厦门市集美区孙坂南路92号"
+}
+
+message AvailableOptionsRsp {
+  repeated string categories = 1;   // 用电类别列表，示例：["福建>工商业,两部制>1-10（20）千伏"]
+  repeated double powerFactors = 2; // 功率因素标准值列表，示例：[0.8, 0.85, 0.9]
+}
+
+message GetUserOptionReq {
+  string account = 1;               // 工程ID
+  string area = 2;                  // 工程区域，可选区域名、支路名或设备ID等关键字，sql用like查询
+}
+
+message UserOptionBody {
+  string account = 1;               // 工程ID
+  string area = 2;                  // 工程区域
+  string category = 3;              // 用电类别
+  double powerFactor = 4;           // [大陆]功率因素标准
+  double capacity = 5;              // [大陆]合同容量
+  double demand = 6;                // [大陆]合同需量
+  double installedCap = 7;          // [台湾]装置契约
+  double regularCap = 8;            // [台湾]常规契约
+  double nonSummerCap = 9;          // [台湾]非夏季契约
+  double semiPeakCap = 10;          // [台湾]半尖峰契约
+  double satSemiPeakCap = 11;       // [台湾]周六半尖峰契约
+  double offPeakCap = 12;           // [台湾]离峰契约
+  int64 id = 13;                    // 
 }

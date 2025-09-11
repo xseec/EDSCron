@@ -87,14 +87,13 @@ type TwdlRow struct {
 }
 
 const (
-	twTag         = "twdl"
-	twHourTag     = "hour"
-	titleValueSep = ":"
-	maxPage       = 12
+	twTag     = "twdl"
+	twHourTag = "hour"
+	maxPage   = 12
 )
 
 var (
-	twdlCategories = []string{
+	TwdlCategories = []string{
 		"表燈(住商)電價>非時間電價>住宅用",
 		"表燈(住商)電價>非時間電價>住宅以外非營業用",
 		"表燈(住商)電價>非時間電價>營業用",
@@ -344,11 +343,11 @@ func (row *TwdlRow) evaluate(titles, values []string) {
 
 					s := values[index]
 					if subs := reg.FindStringSubmatch(title); len(subs) >= 2 {
-						s = subs[1] + titleValueSep + s
+						s = subs[1] + fieldKeyValueSep + s
 					}
 
-					s = dlValue.Field(i).String() + fieldValueSep + s
-					s = strings.Trim(s, fieldValueSep)
+					s = dlValue.Field(i).String() + fieldSubSep + s
+					s = strings.Trim(s, fieldSubSep)
 					dlValue.Field(i).SetString(s)
 				}
 			}
@@ -515,7 +514,7 @@ func formatTwdls(rows []TwdlRow, useHtml bool) string {
 		rowSeparator := "\n"
 		if useHtml {
 			rowSeparator = "<hr/>"
-			if slices.Contains(twdlCategories, row.Category) {
+			if slices.Contains(TwdlCategories, row.Category) {
 				color = "gray"
 			} else {
 				color = "red"

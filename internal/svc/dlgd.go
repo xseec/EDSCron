@@ -7,15 +7,13 @@ import (
 	"time"
 
 	"github.com/Knetic/govaluate"
-	"github.com/jinzhu/copier"
-	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/model"
 	"seeccloud.com/edscron/pkg/cronx"
 	"seeccloud.com/edscron/pkg/vars"
 )
 
 // GetPrice 获取指定时间点的电价信息
-func (svc *ServiceContext) GetDlgdPrice(t time.Time, one *model.Dlgd) (*cron.PriceRsp, error) {
+func (svc *ServiceContext) GetDlgdPrice(t time.Time, one *model.Dlgd) (*cronx.Period, error) {
 
 	ctx := context.Background()
 	dateCondition := one.DeepDate + one.SharpDate + one.ValleyDate + one.PeakDate + one.FlatDate
@@ -58,7 +56,5 @@ func (svc *ServiceContext) GetDlgdPrice(t time.Time, one *model.Dlgd) (*cron.Pri
 	}
 
 	price := one.GetPrice(t, holiday, isWeatherActived)
-	var rsp cron.PriceRsp
-	copier.Copy(&rsp, price)
-	return &rsp, nil
+	return &price, nil
 }

@@ -5,13 +5,14 @@ import (
 	"fmt"
 
 	"github.com/zeromicro/go-zero/core/stores/cache"
+	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 var (
 	_ AreaModel = (*customAreaModel)(nil)
 
-	cacheEdsCronAreaAddressPrefix = "cache:edsCron:area:address:"
+	cacheEdsCronAreaParentPrefix = "cache:edsCron:area:parent:"
 )
 
 type (
@@ -19,7 +20,7 @@ type (
 	// and implement the added methods in customAreaModel.
 	AreaModel interface {
 		areaModel
-		FindAddress(ctx context.Context, area string) (string, error)
+		FindParent(ctx context.Context, area string) (*Area, error)
 	}
 
 	customAreaModel struct {
@@ -34,43 +35,45 @@ func NewAreaModel(conn sqlx.SqlConn, c cache.CacheConf) AreaModel {
 	}
 }
 
-func (m *customAreaModel) FindAddress(ctx context.Context, area string) (string, error) {
-	edsCronAreaAddressKey := fmt.Sprintf("%s%v", cacheEdsCronAreaAddressPrefix, area)
-	var address string
-	err := m.GetCacheCtx(ctx, edsCronAreaAddressKey, &address)
+func (m *customAreaModel) FindParent(ctx context.Context, area string) (*Area, error) {
+	edsCronAreaAddressKey := fmt.Sprintf("%s%v", cacheEdsCronAreaParentPrefix, area)
+	var resp, parent Area
+	err := m.GetCacheCtx(ctx, edsCronAreaAddressKey, &parent)
 	if err == nil {
-		return address, nil
-	} else if err != ErrNotFound {
-		return "", err
-	}
-
-	var resp Area
-	query := fmt.Sprintf("select %s from %s where `name` like ? limit 1", areaRows, m.table)
-	err = m.QueryRowNoCacheCtx(ctx, &resp, query, "%"+area+"%")
-	if err == ErrNotFound {
-		m.SetCacheCtx(ctx, edsCronAreaAddressKey, nil)
-	}
-
-	if err != nil {
-		return "", err
-	}
-
-	address = resp.Name
-	// 避免数据库数据错误进入死循环(id=100, parent=100)
-	for range 5 {
-		if resp.Parent == 0 {
-			break
+		if len(parent.Name) == 0 {
+			return nil, ErrNotFound
 		}
+		return &parent, nil
+	}
 
-		query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", areaRows, m.table)
-		err := m.QueryRowNoCacheCtx(ctx, &resp, query, resp.Parent)
+	err = m.QueryRowCtx(ctx, &resp, edsCronAreaAddressKey, func(ctx context.Context, conn sqlx.SqlConn, v any) error {
+		query := fmt.Sprintf("select %s from %s where `name` like ? limit 1", areaRows, m.table)
+		err := conn.QueryRowCtx(ctx, &resp, query, "%"+area+"%")
 		if err != nil {
-			return "", err
+			return err
 		}
 
-		address = resp.Name + address
-	}
+		if resp.Parent == -1 {
+			return ErrNotFound
+		}
 
-	m.SetCacheCtx(ctx, edsCronAreaAddressKey, address)
-	return address, nil
+		one, err := m.FindOne(ctx, uint64(resp.Parent))
+		if err != nil {
+			return err
+		}
+
+		parent = *one
+		return nil
+	})
+
+	switch err {
+	case nil:
+		m.SetCacheCtx(ctx, edsCronAreaAddressKey, parent)
+		return &parent, nil
+	case sqlc.ErrNotFound:
+		m.SetCacheCtx(ctx, edsCronAreaAddressKey, nil)
+		return nil, ErrNotFound
+	default:
+		return nil, err
+	}
 }

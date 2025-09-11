@@ -12,14 +12,14 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type GetEnergyOptionsLogic struct {
+type GetAvailableOptionsLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 	logx.Logger
 }
 
-func NewGetEnergyOptionsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetEnergyOptionsLogic {
-	return &GetEnergyOptionsLogic{
+func NewGetAvailableOptionsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetAvailableOptionsLogic {
+	return &GetAvailableOptionsLogic{
 		ctx:    ctx,
 		svcCtx: svcCtx,
 		Logger: logx.WithContext(ctx),
@@ -27,7 +27,7 @@ func NewGetEnergyOptionsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 // 获取能源可选项
-func (l *GetEnergyOptionsLogic) GetEnergyOptions(in *cron.EnergyOptionsReq) (*cron.EnergyOptionsRsp, error) {
+func (l *GetAvailableOptionsLogic) GetAvailableOptions(in *cron.AvailableOptionsReq) (*cron.AvailableOptionsRsp, error) {
 	err := expx.HasZeroError(in, "Address")
 	if err != nil {
 		return nil, err
@@ -49,10 +49,10 @@ func (l *GetEnergyOptionsLogic) GetEnergyOptions(in *cron.EnergyOptionsReq) (*cr
 	}
 
 	if categories == nil {
-		return nil, fmt.Errorf("所在区域用电类别为空, 请联系系统管理员. Address: %s", in.Address)
+		return nil, fmt.Errorf("所在区域用电类别为空, 请联系系统管理员。 Address: %s", in.Address)
 	}
 
-	return &cron.EnergyOptionsRsp{
+	return &cron.AvailableOptionsRsp{
 		Categories:   *categories,
 		PowerFactors: factors,
 	}, nil

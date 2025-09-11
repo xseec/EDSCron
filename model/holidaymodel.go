@@ -8,7 +8,6 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"seeccloud.com/edscron/pkg/vars"
-	"seeccloud.com/edscron/pkg/x/timex"
 )
 
 var (
@@ -22,8 +21,8 @@ type (
 	HolidayModel interface {
 		holidayModel
 		FindAllByAreaYear(ctx context.Context, area string, year int) (*[]Holiday, error)
-		AddMany(ctx context.Context, area string, holidays *[]Holiday) error
 		FindOneByAreaDateCache(ctx context.Context, area string, date string) (*Holiday, error)
+		AddMany(ctx context.Context, area string, holidays *[]Holiday) error
 	}
 
 	customHolidayModel struct {
@@ -63,6 +62,17 @@ func (m *customHolidayModel) FindAllByAreaYear(ctx context.Context, area string,
 	return &days, nil
 }
 
+func (m *customHolidayModel) FindOneByAreaDateCache(ctx context.Context, area string, date string) (*Holiday, error) {
+	// 查询日期假期属高频场景，空纪录也加入缓存1天
+	one, err := m.FindOneByAreaDate(ctx, area, date)
+	if err == ErrNotFound {
+		key := fmt.Sprintf(cacheEdsCronHolidayAreaDatePrefix+"%s:%s", area, date)
+		m.SetCacheWithExpireCtx(ctx, key, nil, time.Hour*24)
+	}
+
+	return one, err
+}
+
 func (m *customHolidayModel) AddMany(ctx context.Context, area string, holidays *[]Holiday) error {
 	years := map[int]any{}
 	for _, hol := range *holidays {
@@ -73,7 +83,7 @@ func (m *customHolidayModel) AddMany(ctx context.Context, area string, holidays 
 
 		years[t.Year()] = nil
 
-		if one, err := m.FindOneByAreaDateCache(ctx, area, hol.Date); err == nil {
+		if one, err := m.FindOneByAreaDate(ctx, area, hol.Date); err == nil {
 			one.Category = hol.Category
 			one.Detail = hol.Detail
 			err = m.Update(ctx, one)
@@ -92,24 +102,10 @@ func (m *customHolidayModel) AddMany(ctx context.Context, area string, holidays 
 	}
 
 	// 编辑后需同步删除缓存
-	for y, _ := range years {
+	for y := range years {
 		key := fmt.Sprintf(cacheEdsCronHolidayAreaYearPrefix+"%s:%d", area, y)
 		m.DelCacheCtx(ctx, key)
 	}
 
 	return nil
-}
-
-func (m *customHolidayModel) FindOneByAreaDateCache(ctx context.Context, area string, date string) (*Holiday, error) {
-	one, err := m.FindOneByAreaDate(ctx, area, date)
-	if err == ErrNotFound {
-		key := fmt.Sprintf(cacheEdsCronHolidayAreaDatePrefix+"%s:%s", area, date)
-		m.SetCacheWithExpireCtx(ctx, key, nil, timex.SubTomorrow())
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return one, nil
 }

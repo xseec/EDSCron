@@ -243,8 +243,8 @@ func TestGetPriceLogic(t *testing.T) {
 				return
 			}
 
-			if !assert.InEpsilon(t, tt.want, got.Value, 0.001) {
-				t.Errorf("GetPrice() = %v, want %v", got.Value, tt.want)
+			if !assert.InEpsilon(t, tt.want, got.Price, 0.001) {
+				t.Errorf("GetPrice() = %v, want %v", got.Price, tt.want)
 			}
 		})
 	}

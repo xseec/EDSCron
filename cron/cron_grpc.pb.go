@@ -22,11 +22,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CronClient interface {
-	// 获取能源可选项
-	GetEnergyOptions(ctx context.Context, in *EnergyOptionsReq, opts ...grpc.CallOption) (*EnergyOptionsRsp, error)
 	// 获取任务列表
 	GetCrons(ctx context.Context, in *CronsReq, opts ...grpc.CallOption) (*CronsRsp, error)
-	// 创建任务
+	// 新增任务
 	AddCron(ctx context.Context, in *CronBody, opts ...grpc.CallOption) (*ResultRsp, error)
 	// 更新任务
 	UpdateCron(ctx context.Context, in *CronBody, opts ...grpc.CallOption) (*ResultRsp, error)
@@ -36,20 +34,30 @@ type CronClient interface {
 	TodoCron(ctx context.Context, in *TodoCronReq, opts ...grpc.CallOption) (*ResultRsp, error)
 	// 获取碳排因子
 	GetCarbon(ctx context.Context, in *CarbonReq, opts ...grpc.CallOption) (*CarbonRsp, error)
-	// 创建碳排因子
+	// 新增碳排因子
 	AddCarbon(ctx context.Context, in *AddCarbonReq, opts ...grpc.CallOption) (*ResultRsp, error)
 	// 获取天气预报列表
 	GetWeathers(ctx context.Context, in *WeathersReq, opts ...grpc.CallOption) (*WeathersRsp, error)
 	// 获取假日列表
 	GetHolidays(ctx context.Context, in *HolidaysReq, opts ...grpc.CallOption) (*HolidaysRsp, error)
-	// 创建/更新假日
+	// 新增/更新假日
 	AddHolidays(ctx context.Context, in *AddHolidaysReq, opts ...grpc.CallOption) (*ResultRsp, error)
 	// 删除假日
 	DeleteHoliday(ctx context.Context, in *DelReq, opts ...grpc.CallOption) (*ResultRsp, error)
 	// 获取电价
 	GetPrice(ctx context.Context, in *PriceReq, opts ...grpc.CallOption) (*PriceRsp, error)
 	// 获取账单
-	GetBill(ctx context.Context, in *BillReq, opts ...grpc.CallOption) (*BillRsp, error)
+	GetMonthlyBill(ctx context.Context, in *BillReq, opts ...grpc.CallOption) (*BillRsp, error)
+	// 获取用电档案可选项
+	GetAvailableOptions(ctx context.Context, in *AvailableOptionsReq, opts ...grpc.CallOption) (*AvailableOptionsRsp, error)
+	// 获取用电档案
+	GetUserOption(ctx context.Context, in *GetUserOptionReq, opts ...grpc.CallOption) (*UserOptionBody, error)
+	// 新增用电档案
+	AddUserOption(ctx context.Context, in *UserOptionBody, opts ...grpc.CallOption) (*ResultRsp, error)
+	// 更新用电档案
+	UpdateUserOption(ctx context.Context, in *UserOptionBody, opts ...grpc.CallOption) (*ResultRsp, error)
+	// 删除用电档案
+	DeleteUserOption(ctx context.Context, in *DelReq, opts ...grpc.CallOption) (*ResultRsp, error)
 }
 
 type cronClient struct {
@@ -58,15 +66,6 @@ type cronClient struct {
 
 func NewCronClient(cc grpc.ClientConnInterface) CronClient {
 	return &cronClient{cc}
-}
-
-func (c *cronClient) GetEnergyOptions(ctx context.Context, in *EnergyOptionsReq, opts ...grpc.CallOption) (*EnergyOptionsRsp, error) {
-	out := new(EnergyOptionsRsp)
-	err := c.cc.Invoke(ctx, "/cron.Cron/GetEnergyOptions", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *cronClient) GetCrons(ctx context.Context, in *CronsReq, opts ...grpc.CallOption) (*CronsRsp, error) {
@@ -177,9 +176,54 @@ func (c *cronClient) GetPrice(ctx context.Context, in *PriceReq, opts ...grpc.Ca
 	return out, nil
 }
 
-func (c *cronClient) GetBill(ctx context.Context, in *BillReq, opts ...grpc.CallOption) (*BillRsp, error) {
+func (c *cronClient) GetMonthlyBill(ctx context.Context, in *BillReq, opts ...grpc.CallOption) (*BillRsp, error) {
 	out := new(BillRsp)
-	err := c.cc.Invoke(ctx, "/cron.Cron/GetBill", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/cron.Cron/GetMonthlyBill", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cronClient) GetAvailableOptions(ctx context.Context, in *AvailableOptionsReq, opts ...grpc.CallOption) (*AvailableOptionsRsp, error) {
+	out := new(AvailableOptionsRsp)
+	err := c.cc.Invoke(ctx, "/cron.Cron/GetAvailableOptions", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cronClient) GetUserOption(ctx context.Context, in *GetUserOptionReq, opts ...grpc.CallOption) (*UserOptionBody, error) {
+	out := new(UserOptionBody)
+	err := c.cc.Invoke(ctx, "/cron.Cron/GetUserOption", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cronClient) AddUserOption(ctx context.Context, in *UserOptionBody, opts ...grpc.CallOption) (*ResultRsp, error) {
+	out := new(ResultRsp)
+	err := c.cc.Invoke(ctx, "/cron.Cron/AddUserOption", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cronClient) UpdateUserOption(ctx context.Context, in *UserOptionBody, opts ...grpc.CallOption) (*ResultRsp, error) {
+	out := new(ResultRsp)
+	err := c.cc.Invoke(ctx, "/cron.Cron/UpdateUserOption", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cronClient) DeleteUserOption(ctx context.Context, in *DelReq, opts ...grpc.CallOption) (*ResultRsp, error) {
+	out := new(ResultRsp)
+	err := c.cc.Invoke(ctx, "/cron.Cron/DeleteUserOption", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -190,11 +234,9 @@ func (c *cronClient) GetBill(ctx context.Context, in *BillReq, opts ...grpc.Call
 // All implementations must embed UnimplementedCronServer
 // for forward compatibility
 type CronServer interface {
-	// 获取能源可选项
-	GetEnergyOptions(context.Context, *EnergyOptionsReq) (*EnergyOptionsRsp, error)
 	// 获取任务列表
 	GetCrons(context.Context, *CronsReq) (*CronsRsp, error)
-	// 创建任务
+	// 新增任务
 	AddCron(context.Context, *CronBody) (*ResultRsp, error)
 	// 更新任务
 	UpdateCron(context.Context, *CronBody) (*ResultRsp, error)
@@ -204,20 +246,30 @@ type CronServer interface {
 	TodoCron(context.Context, *TodoCronReq) (*ResultRsp, error)
 	// 获取碳排因子
 	GetCarbon(context.Context, *CarbonReq) (*CarbonRsp, error)
-	// 创建碳排因子
+	// 新增碳排因子
 	AddCarbon(context.Context, *AddCarbonReq) (*ResultRsp, error)
 	// 获取天气预报列表
 	GetWeathers(context.Context, *WeathersReq) (*WeathersRsp, error)
 	// 获取假日列表
 	GetHolidays(context.Context, *HolidaysReq) (*HolidaysRsp, error)
-	// 创建/更新假日
+	// 新增/更新假日
 	AddHolidays(context.Context, *AddHolidaysReq) (*ResultRsp, error)
 	// 删除假日
 	DeleteHoliday(context.Context, *DelReq) (*ResultRsp, error)
 	// 获取电价
 	GetPrice(context.Context, *PriceReq) (*PriceRsp, error)
 	// 获取账单
-	GetBill(context.Context, *BillReq) (*BillRsp, error)
+	GetMonthlyBill(context.Context, *BillReq) (*BillRsp, error)
+	// 获取用电档案可选项
+	GetAvailableOptions(context.Context, *AvailableOptionsReq) (*AvailableOptionsRsp, error)
+	// 获取用电档案
+	GetUserOption(context.Context, *GetUserOptionReq) (*UserOptionBody, error)
+	// 新增用电档案
+	AddUserOption(context.Context, *UserOptionBody) (*ResultRsp, error)
+	// 更新用电档案
+	UpdateUserOption(context.Context, *UserOptionBody) (*ResultRsp, error)
+	// 删除用电档案
+	DeleteUserOption(context.Context, *DelReq) (*ResultRsp, error)
 	mustEmbedUnimplementedCronServer()
 }
 
@@ -225,9 +277,6 @@ type CronServer interface {
 type UnimplementedCronServer struct {
 }
 
-func (UnimplementedCronServer) GetEnergyOptions(context.Context, *EnergyOptionsReq) (*EnergyOptionsRsp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetEnergyOptions not implemented")
-}
 func (UnimplementedCronServer) GetCrons(context.Context, *CronsReq) (*CronsRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCrons not implemented")
 }
@@ -264,8 +313,23 @@ func (UnimplementedCronServer) DeleteHoliday(context.Context, *DelReq) (*ResultR
 func (UnimplementedCronServer) GetPrice(context.Context, *PriceReq) (*PriceRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPrice not implemented")
 }
-func (UnimplementedCronServer) GetBill(context.Context, *BillReq) (*BillRsp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBill not implemented")
+func (UnimplementedCronServer) GetMonthlyBill(context.Context, *BillReq) (*BillRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMonthlyBill not implemented")
+}
+func (UnimplementedCronServer) GetAvailableOptions(context.Context, *AvailableOptionsReq) (*AvailableOptionsRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAvailableOptions not implemented")
+}
+func (UnimplementedCronServer) GetUserOption(context.Context, *GetUserOptionReq) (*UserOptionBody, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserOption not implemented")
+}
+func (UnimplementedCronServer) AddUserOption(context.Context, *UserOptionBody) (*ResultRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddUserOption not implemented")
+}
+func (UnimplementedCronServer) UpdateUserOption(context.Context, *UserOptionBody) (*ResultRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateUserOption not implemented")
+}
+func (UnimplementedCronServer) DeleteUserOption(context.Context, *DelReq) (*ResultRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteUserOption not implemented")
 }
 func (UnimplementedCronServer) mustEmbedUnimplementedCronServer() {}
 
@@ -278,24 +342,6 @@ type UnsafeCronServer interface {
 
 func RegisterCronServer(s grpc.ServiceRegistrar, srv CronServer) {
 	s.RegisterService(&Cron_ServiceDesc, srv)
-}
-
-func _Cron_GetEnergyOptions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EnergyOptionsReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CronServer).GetEnergyOptions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/cron.Cron/GetEnergyOptions",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CronServer).GetEnergyOptions(ctx, req.(*EnergyOptionsReq))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Cron_GetCrons_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -514,20 +560,110 @@ func _Cron_GetPrice_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Cron_GetBill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Cron_GetMonthlyBill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(BillReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CronServer).GetBill(ctx, in)
+		return srv.(CronServer).GetMonthlyBill(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cron.Cron/GetBill",
+		FullMethod: "/cron.Cron/GetMonthlyBill",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CronServer).GetBill(ctx, req.(*BillReq))
+		return srv.(CronServer).GetMonthlyBill(ctx, req.(*BillReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cron_GetAvailableOptions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AvailableOptionsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServer).GetAvailableOptions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cron.Cron/GetAvailableOptions",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServer).GetAvailableOptions(ctx, req.(*AvailableOptionsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cron_GetUserOption_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserOptionReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServer).GetUserOption(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cron.Cron/GetUserOption",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServer).GetUserOption(ctx, req.(*GetUserOptionReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cron_AddUserOption_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserOptionBody)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServer).AddUserOption(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cron.Cron/AddUserOption",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServer).AddUserOption(ctx, req.(*UserOptionBody))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cron_UpdateUserOption_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserOptionBody)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServer).UpdateUserOption(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cron.Cron/UpdateUserOption",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServer).UpdateUserOption(ctx, req.(*UserOptionBody))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cron_DeleteUserOption_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DelReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServer).DeleteUserOption(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cron.Cron/DeleteUserOption",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServer).DeleteUserOption(ctx, req.(*DelReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -539,10 +675,6 @@ var Cron_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "cron.Cron",
 	HandlerType: (*CronServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "GetEnergyOptions",
-			Handler:    _Cron_GetEnergyOptions_Handler,
-		},
 		{
 			MethodName: "GetCrons",
 			Handler:    _Cron_GetCrons_Handler,
@@ -592,8 +724,28 @@ var Cron_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Cron_GetPrice_Handler,
 		},
 		{
-			MethodName: "GetBill",
-			Handler:    _Cron_GetBill_Handler,
+			MethodName: "GetMonthlyBill",
+			Handler:    _Cron_GetMonthlyBill_Handler,
+		},
+		{
+			MethodName: "GetAvailableOptions",
+			Handler:    _Cron_GetAvailableOptions_Handler,
+		},
+		{
+			MethodName: "GetUserOption",
+			Handler:    _Cron_GetUserOption_Handler,
+		},
+		{
+			MethodName: "AddUserOption",
+			Handler:    _Cron_AddUserOption_Handler,
+		},
+		{
+			MethodName: "UpdateUserOption",
+			Handler:    _Cron_UpdateUserOption_Handler,
+		},
+		{
+			MethodName: "DeleteUserOption",
+			Handler:    _Cron_DeleteUserOption_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

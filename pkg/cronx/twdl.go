@@ -82,7 +82,7 @@ func (c *TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]Holiday, error) {
 			Calendar:    strings.Join(offPeakDays, ", "),
 			StartDate:   startDate,
 			RecordCount: len(values),
-			TargetCount: len(twdlCategories) * 2,
+			TargetCount: len(TwdlCategories) * 2,
 			Details:     template.HTML(formatTwdls(values, true)),
 		}, calPdfPath, calExcelPath, pdfPath, wordPath, excelPath)
 

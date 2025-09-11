@@ -4,7 +4,8 @@ type Period struct {
 	Name  string  `json:"name"`
 	Desc  string  `json:"desc"`
 	Color string  `json:"color"`
-	Value float64 `json:"value"`
+	Price float64 `json:"price"` // 电价
+	Usage float64 `json:"usage"` // 电量
 }
 
 var (

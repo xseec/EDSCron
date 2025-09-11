@@ -22,6 +22,7 @@ type ServiceContext struct {
 	HolidayModel model.HolidayModel
 	WeatherModel model.WeatherModel
 	AreaModel    model.AreaModel
+	OptionModel  model.UserOptionModel
 	Cr           *cron.Cron
 }
 
@@ -36,6 +37,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		HolidayModel: model.NewHolidayModel(conn, c.CacheRedis),
 		WeatherModel: model.NewWeatherModel(conn, c.CacheRedis),
 		AreaModel:    model.NewAreaModel(conn, c.CacheRedis),
+		OptionModel:  model.NewUserOptionModel(conn, c.CacheRedis),
 		Cr:           cron.New(),
 	}
 }

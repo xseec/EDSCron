@@ -80,6 +80,11 @@ func ExtractAddress(address string, short bool) (province, city string) {
 		province, city = matches[1], matches[1]
 	}
 
+	// 尝试仅匹配市级
+	if matches := regexp.MustCompile(cityPattern).FindStringSubmatch(address); len(matches) == 2 {
+		city = matches[1]
+	}
+
 	return
 }
 
