@@ -1,39 +1,40 @@
-# EDS定时任务服务（cron.rpc）
+# EDS动态追踪服务（cron.rpc）
 
 ## 🔖简介
 
-> EDS部分功能依赖于外部机构定期/不定期发布的数据，人为录入存在时效性、准确性和重复性困难，开发定时任务服务(cron.rpc)解决此类问题。
+> EDS 部分功能依赖于外部机构定期、不定期发布的数据，人为录入存在时效性、准确性和重复性困难，开发动态追踪服务（cron.rpc）解决此类问题。
 
-引用资源：
+  
+🌍 引用资源：
 
 |类型标识|名称|数据源|
 |-|-|-|
-|dlgd|代理购电|[国家电网](https://95598.cn/osgweb/index)/[南方电网](https://95598.csg.cn/)|
-|twdl|台湾电力|[台湾電力公司-電價表/電價日曆表](https://99z.top/https://www.taipower.com.tw/2289/2290/46940/46945/normalPost)|
+|dlgd|代理购电|[国家电网](https://95598.cn/osgweb/index) / [南方电网](https://95598.csg.cn/)|
+|twdl|台湾电力|[台湾電力公司-電價表 / 電價日曆表](https://99z.top/https://www.taipower.com.tw/2289/2290/46940/46945/normalPost)|
 |holiday|节假日|[各国假期日历](https://holidays-calendar.net/)|
 |weather|天气预报|[中央气象台](http://www.nmc.cn/)|
 |carbon|大陆碳排因子|[国家碳排因子库](https://data.ncsc.org.cn/factoryes/index)|
-|tw-carbon|台湾碳排因子|[經濟部能源署-温室气体](https://www.moeaea.gov.tw/ecw/populace/content/SubMenu.aspx?menu_id=114)|
-|pdf24|转Excel/Word|[免费、单元格底纹保留👍](https://tools.pdf24.org/zh/pdf-to-excel)|
-|99z.top|代理访问|[免费、稳定](https://99z.top/)|
-|aliyun|文件格式转换|[收费、文本识别准确率高](https://docmind.console.aliyun.com/doc-overview)|
+|tw-carbon|台湾碳排因子|[經濟部能源署 - 温室气体](https://www.moeaea.gov.tw/ecw/populace/content/SubMenu.aspx?menu_id=114)|
+|pdf24|转Excel/Word|[免费，单元格底纹保留👍](https://tools.pdf24.org/zh/pdf-to-excel)|
+|99z.top|代理访问|[免费，稳定](https://99z.top/)|
+|aliyun|文件格式转换|[收费，文本识别准确率高](https://docmind.console.aliyun.com/doc-overview)|
 
 ## 🐼前提条件
 
-政府类网站具有较强的反爬虫机制，用[chromedp](https://github.com/chromedp/chromedp)模拟人为操作，通过点击、跳转和选择等动作提取网页关键元素。
+政府类网站具有较强的反爬虫机制，用[ chromedp ](https://github.com/chromedp/chromedp)模拟人为操作，通过点击、跳转和选择等动作提取网页关键元素。
 
 **运行依赖**：
 
 - 本地需安装 Chrome/Chromium 或兼容浏览器（如 Edge）
-- 构建docker镜像时需安装chromedp所需的依赖（Chromium + 必要库）
+- 构建 Docker 镜像时需安装 chromedp 所需的依赖（Chromium + 必要库）
 
 ## 🎸接口列表
 
 ### 用电档案
 
-- 基于用电档案获得电价和账单信息。当用户存在多个户号时，每个工程ID可以有多个用电档案，用<span style="background-color:#fff8e1;padding:2px 4px">area(工程区域、支路名称)</span>区分。  
+- 基于用电档案获得电价和账单信息。当用户存在多个户号时，每个工程ID可以有多个用电档案，用 **area**（工程区域、支路名称）区分。  
 
-（示例）厦门士林电机有两个户号：士林厂和成宇厂，每个户号下均含两个变压器，其<span style="background-color:#fff8e1;padding:2px 4px">capacity(合同容量)</span>为下辖变压器容量之和。
+（示例）厦门士林电机有两个户号：士林厂和成宇厂，每个户号下均含两个变压器，其 **capacity**（合同容量）为下辖变压器容量之和。
 
 ```json
 {
@@ -99,7 +100,7 @@
 
 ### GetCarbon（获取碳排因子）
 
-- 碳排因子延迟发布，如2025年发布2024年数据；若指定年份无数据，返回最近年份数据。
+- 碳排因子延迟发布，如2025年发布2024年数据；若指定年份无数据，返回最新年份数据。
 
 ```json
 // Request
