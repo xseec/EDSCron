@@ -31,12 +31,8 @@ func (l *GetCronsLogic) GetCrons(in *cron.CronsReq) (*cron.CronsRsp, error) {
 		return nil, err
 	}
 
-	values := make([]*cron.CronBody, 0)
-	for _, c := range *crons {
-		var cron cron.CronBody
-		copierx.Copy(&cron, c)
-		values = append(values, &cron)
-	}
+	var values []*cron.CronBody
+	copierx.Copy(&values, crons)
 
 	return &cron.CronsRsp{
 		Crons: values,

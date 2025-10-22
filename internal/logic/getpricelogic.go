@@ -34,8 +34,12 @@ func NewGetPriceLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetPrice
 
 // 获取电价
 func (l *GetPriceLogic) GetPrice(in *cron.PriceReq) (*cron.PriceRsp, error) {
-	if err := expx.HasZeroError(in, "Category", "Time"); err != nil {
+	if err := expx.HasZeroError(in, "Category"); err != nil {
 		return nil, err
+	}
+
+	if in.Time == "" {
+		in.Time = time.Now().Format(vars.DatetimeFormat)
 	}
 
 	t, err := time.ParseInLocation(vars.DatetimeFormat, in.Time, time.Local)

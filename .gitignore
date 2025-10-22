@@ -16,6 +16,7 @@ vendor/
 /temp/
 /playground/
 /logs/
+/release/
 
 # Go workspace file
 go.work

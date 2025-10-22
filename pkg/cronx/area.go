@@ -44,9 +44,16 @@ func EitherChinaOrTaiwan(address string) AreaCategory {
 //   - city: 市级行政区名称
 func ExtractAddress(address string, short bool) (province, city string) {
 	defer func() {
+		// 泉州市石狮市 → 泉州市
+		cty := regexp.MustCompile(`\S+?(市|自治州|盟|地区|区|县)`).FindString(city)
+		if len(cty) > 0 {
+			city = cty
+		}
+
 		if short {
-			province = trimSuffix(province, []string{"省", "自治区", "壮族自治区",
-				"回族自治区", "维吾尔自治区", "特别行政区"})
+			// 内蒙古自治区→内蒙（95598.cn缩写）
+			province = trimSuffix(province, []string{"省", "壮族自治区",
+				"回族自治区", "维吾尔自治区", "特别行政区", "古自治区", "自治区", "市"})
 			city = trimSuffix(city, []string{"市", "自治州", "盟", "地区", "区", "县"})
 		}
 	}()
@@ -58,7 +65,7 @@ func ExtractAddress(address string, short bool) (province, city string) {
 	const (
 		provincePattern = `(北京市|天津市|上海市|重庆市|台湾|内蒙古自治区|广西壮族自治区|` +
 			`西藏自治区|宁夏回族自治区|新疆维吾尔自治区|香港特别行政区|澳门特别行政区|.+?省)`
-		cityPattern   = `(.+?市|.+?自治州|.+?盟|.+?地区|.+?区|.+?县)`
+		cityPattern   = `(.+?市|.+?自治州|.+?盟|.+?地区)` //|.+?区|.+?县)`
 		taiwanPattern = `^(台湾地区|台湾省|台湾)?(台北市|高雄市|台中市|台南市|` +
 			`新北市|新竹市|桃园市|基隆市|嘉义市|.+?县)`
 	)

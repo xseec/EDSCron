@@ -42,7 +42,8 @@ func (m *customWeatherModel) FindMoreByDateCity(ctx context.Context, date string
 		start = t
 	}
 
-	end := start.AddDate(0, 0, int(size))
+	// `date` between "2025-08-01" and "2025-08-02" 将返回两条记录
+	end := start.AddDate(0, 0, int(size-1))
 
 	key := fmt.Sprintf(cacheEdsEnergyWeatherDateCitySizePrefix+"%s:%s:%d", start.Format(vars.DateFormat), city, size)
 	var weas []Weather

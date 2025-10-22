@@ -18,4 +18,8 @@ type Config struct {
 		AccessKeyId     string
 		AccessKeySecret string
 	}
+	Migrate struct {
+		Dir     string
+		AutoRun bool
+	}
 }

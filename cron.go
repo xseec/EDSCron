@@ -6,6 +6,7 @@ import (
 
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/config"
+	"seeccloud.com/edscron/internal/data"
 	"seeccloud.com/edscron/internal/server"
 	"seeccloud.com/edscron/internal/svc"
 
@@ -29,6 +30,12 @@ func main() {
 	conf.MustLoad(*configFile, &c, conf.UseEnv())
 	ctx := svc.NewServiceContext(c)
 	logx.MustSetup(c.Log)
+
+	// 执行数据库迁移
+	if err := data.Migrate(c.MySql.DataSource, c.Migrate.Dir, c.Migrate.AutoRun); err != nil {
+		logx.Errorf("数据库迁移失败: %v", err)
+		return
+	}
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
 		cron.RegisterCronServer(grpcServer, server.NewCronServer(ctx))

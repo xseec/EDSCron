@@ -18,8 +18,28 @@ test:
 	@echo "Running tests..."
 	go test -v ./...
 
-## docker: 构建 docker 镜像
-docker:
+## build-windows: 编译项目
+build-windows:
+	mkdir release\etc 2>nul || echo "Directory etc exists"
+	mkdir release\logs 2>nul || echo "Directory logs exists"
+	copy etc\cron.yaml release\etc\ 2>nul
+	copy .env release\ 2>nul
+	@echo "Building windows project..."
+	set "GOOS=windows" && set "GOARCH=amd64" && go build -o release\edscron.exe
+	@echo "Windows build done"
+
+## build-linux: 编译项目
+build-linux:
+	mkdir release\etc 2>nul || echo "Directory etc exists"
+	mkdir release\logs 2>nul || echo "Directory logs exists"
+	copy etc\cron.yaml release\etc\ 2>nul
+	copy .env release\ 2>nul
+	@echo "Building linux project..."
+	set "GOOS=linux" && set "GOARCH=amd64" && go build -o release\edscron
+	@echo "Linux build done"
+
+## build-docker: 构建 docker 镜像
+build-docker:
 	@echo "Building docker image..."
 	docker build -t cron:latest .
 

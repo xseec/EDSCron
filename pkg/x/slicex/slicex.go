@@ -142,6 +142,16 @@ func MapFunc[S, T any](elems []S, f func(S) T) []T {
 	return results
 }
 
+func Diff[T comparable](a, b []T) []T {
+	results := make([]T, 0, len(a))
+	for _, v := range a {
+		if !Contains(b, v) {
+			results = append(results, v)
+		}
+	}
+	return results
+}
+
 // Max 返回切片中的最大值和是否找到的布尔值
 // 如果切片为空，返回 false
 func Max[T constraints.Ordered](elems []T) (T, bool) {
@@ -186,4 +196,17 @@ func NewFunc[T any](length int, f func(int) T) []T {
 		elems[i] = f(i)
 	}
 	return elems
+}
+
+// RemoveDuplicates 从切片中移除重复元素，返回新切片
+func RemoveDuplicates[T comparable](elems []T) []T {
+	results := make([]T, 0, len(elems))
+	seen := make(map[T]bool)
+	for _, s := range elems {
+		if !seen[s] {
+			results = append(results, s)
+			seen[s] = true
+		}
+	}
+	return results
 }

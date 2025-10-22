@@ -37,7 +37,12 @@ func (l *AddHolidaysLogic) AddHolidays(in *cron.AddHolidaysReq) (*cron.ResultRsp
 	area := cronx.EitherChinaOrTaiwan(in.Address)
 
 	var many []model.Holiday
-	copier.Copy(&many, in.Holidays)
+	for _, h := range in.Holidays {
+		var holiday model.Holiday
+		copier.Copy(&holiday, h)
+		many = append(many, holiday)
+	}
+
 	if err := l.svcCtx.HolidayModel.AddMany(l.ctx, string(area), &many); err != nil {
 		return nil, err
 	}

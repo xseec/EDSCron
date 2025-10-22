@@ -14,31 +14,33 @@ import (
 )
 
 type ServiceContext struct {
-	Config       config.Config
-	CronModel    model.CronModel
-	CarbonModel  model.CarbonModel
-	DlgdModel    model.DlgdModel
-	TwdlModel    model.TwdlModel
-	HolidayModel model.HolidayModel
-	WeatherModel model.WeatherModel
-	AreaModel    model.AreaModel
-	OptionModel  model.UserOptionModel
-	Cr           *cron.Cron
+	Config        config.Config
+	CronModel     model.CronModel
+	CarbonModel   model.CarbonModel
+	DlgdModel     model.DlgdModel
+	DlgdHourModel model.DlgdHourModel
+	TwdlModel     model.TwdlModel
+	HolidayModel  model.HolidayModel
+	WeatherModel  model.WeatherModel
+	AreaModel     model.AreaModel
+	OptionModel   model.UserOptionModel
+	Cr            *cron.Cron
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	conn := sqlx.NewMysql(c.MySql.DataSource)
 	return &ServiceContext{
-		Config:       c,
-		CronModel:    model.NewCronModel(conn, c.CacheRedis),
-		CarbonModel:  model.NewCarbonModel(conn, c.CacheRedis),
-		DlgdModel:    model.NewDlgdModel(conn, c.CacheRedis),
-		TwdlModel:    model.NewTwdlModel(conn, c.CacheRedis),
-		HolidayModel: model.NewHolidayModel(conn, c.CacheRedis),
-		WeatherModel: model.NewWeatherModel(conn, c.CacheRedis),
-		AreaModel:    model.NewAreaModel(conn, c.CacheRedis),
-		OptionModel:  model.NewUserOptionModel(conn, c.CacheRedis),
-		Cr:           cron.New(),
+		Config:        c,
+		CronModel:     model.NewCronModel(conn, c.CacheRedis),
+		CarbonModel:   model.NewCarbonModel(conn, c.CacheRedis),
+		DlgdModel:     model.NewDlgdModel(conn, c.CacheRedis),
+		DlgdHourModel: model.NewDlgdHourModel(conn, c.CacheRedis),
+		TwdlModel:     model.NewTwdlModel(conn, c.CacheRedis),
+		HolidayModel:  model.NewHolidayModel(conn, c.CacheRedis),
+		WeatherModel:  model.NewWeatherModel(conn, c.CacheRedis),
+		AreaModel:     model.NewAreaModel(conn, c.CacheRedis),
+		OptionModel:   model.NewUserOptionModel(conn, c.CacheRedis),
+		Cr:            cron.New(),
 	}
 }
 

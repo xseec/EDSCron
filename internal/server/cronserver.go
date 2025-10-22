@@ -23,6 +23,12 @@ func NewCronServer(svcCtx *svc.ServiceContext) *CronServer {
 	}
 }
 
+// 快速开始
+func (s *CronServer) QuickStart(ctx context.Context, in *cron.QuickStartReq) (*cron.ResultRsp, error) {
+	l := logic.NewQuickStartLogic(ctx, s.svcCtx)
+	return l.QuickStart(in)
+}
+
 // 获取任务列表
 func (s *CronServer) GetCrons(ctx context.Context, in *cron.CronsReq) (*cron.CronsRsp, error) {
 	l := logic.NewGetCronsLogic(ctx, s.svcCtx)
@@ -129,4 +135,22 @@ func (s *CronServer) UpdateUserOption(ctx context.Context, in *cron.UserOptionBo
 func (s *CronServer) DeleteUserOption(ctx context.Context, in *cron.DelReq) (*cron.ResultRsp, error) {
 	l := logic.NewDeleteUserOptionLogic(ctx, s.svcCtx)
 	return l.DeleteUserOption(in)
+}
+
+// 新增用电时段
+func (s *CronServer) AddDlgdHours(ctx context.Context, in *cron.AddDlgdHourReq) (*cron.ResultRsp, error) {
+	l := logic.NewAddDlgdHoursLogic(ctx, s.svcCtx)
+	return l.AddDlgdHours(in)
+}
+
+// 确认用电时段
+func (s *CronServer) ConfirmDlgdHours(ctx context.Context, in *cron.DlgdHourReq) (*cron.ResultRsp, error) {
+	l := logic.NewConfirmDlgdHoursLogic(ctx, s.svcCtx)
+	return l.ConfirmDlgdHours(in)
+}
+
+// 查询用电时段
+func (s *CronServer) GetDlgdHours(ctx context.Context, in *cron.DlgdHourReq) (*cron.DlgdHoursRsp, error) {
+	l := logic.NewGetDlgdHoursLogic(ctx, s.svcCtx)
+	return l.GetDlgdHours(in)
 }

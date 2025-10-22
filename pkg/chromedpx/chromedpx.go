@@ -35,6 +35,12 @@ type DP struct {
 	Outer     DPOuter `json:"outer" yaml:"outer"`           // 结果提取配置
 }
 
+var (
+	optionalSelReg = regexp.MustCompile(`^\*(\S+)`)
+	regexpSelReg   = regexp.MustCompile(`^\+(\S+)-(\S+)`)
+	pdfUrlReg      = regexp.MustCompile(`(?i)^https?://.*(?:\.pdf$|documentType=pdf)`)
+)
+
 // Run 执行浏览器自动化流程
 //
 // 参数:
@@ -120,15 +126,28 @@ func (dp *DP) processURL(ctx context.Context, u DPUrl, urlIndex int) error {
 
 // processClick 处理单个点击操作
 func (dp *DP) processClick(ctx context.Context, click string, urlIndex, clickIndex, lastClickIndex int) error {
-	// 处理可选点击项(以*开头)
-	optional := strings.HasPrefix(click, "*")
-	if optional {
-		click = click[1:]
+
+	// 处理可选点击项，如"*确认"：随机出现的弹窗确认按钮
+	optional := false
+	if subs := optionalSelReg.FindStringSubmatch(click); len(subs) == 2 {
+		click = subs[1]
+		optional = true
+	}
+
+	// 处理正则表达式点击项，如"+代理购电-2025年0?8月"：从"代理购电"节点列表中匹配"2025年0?8月"的节点
+	detailClick := ""
+	if subs := regexpSelReg.FindStringSubmatch(click); len(subs) == 3 {
+		click = subs[1]
+		detailClick = subs[2]
 	}
 
 	// 查找目标节点
 	var nodes []*cdp.Node
-	searchCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+	searchSecond := time.Second * 20
+	if optional {
+		searchSecond = time.Second * 10
+	}
+	searchCtx, cancel := context.WithTimeout(ctx, searchSecond)
 	defer cancel()
 
 	if err := chromedp.Run(searchCtx, chromedp.WaitReady(click), chromedp.Nodes(click, &nodes, chromedp.BySearch)); !optional && err != nil {
@@ -144,7 +163,17 @@ func (dp *DP) processClick(ctx context.Context, click string, urlIndex, clickInd
 	}
 
 	// 生成选择器并执行点击
-	selector := useSelectorOf(nodes[0])
+	node := nodes[0]
+	if detailClick != "" {
+		for _, n := range nodes {
+			if regexp.MustCompile(detailClick).MatchString(n.NodeValue) {
+				node = n
+				break
+			}
+		}
+	}
+
+	selector := useSelectorOf(node)
 	return dp.executeClick(ctx, selector, urlIndex, clickIndex, lastClickIndex)
 }
 
@@ -220,26 +249,24 @@ func hideWebDriverFlag() chromedp.Action {
 
 // useOuter 提取操作结果
 func useOuter(ctx context.Context, o DPOuter) string {
+	if url := getExtraTabUrl(ctx); url != "" {
+		return url
+	}
+
+	// 提取当前页面内容
 	var result string
+	if err := chromedp.Run(ctx, chromedp.OuterHTML(o.Selector, &result)); err != nil {
+		return ""
+	}
 
-	if o.Selector == "" {
-		// 获取新标签页URL
-		result = getNewTabURL(ctx)
-	} else {
-		// 提取当前页面内容
-		if err := chromedp.Run(ctx, chromedp.OuterHTML(o.Selector, &result)); err != nil {
-			return ""
-		}
-
-		// 应用正则匹配
-		if o.Pattern != "" {
-			reg := regexp.MustCompile(o.Pattern)
-			subs := reg.FindStringSubmatch(result)
-			if len(subs) > 1 {
-				result = subs[1]
-			} else if len(subs) == 1 {
-				result = subs[0]
-			}
+	// 应用正则匹配
+	if o.Pattern != "" {
+		reg := regexp.MustCompile(o.Pattern)
+		subs := reg.FindStringSubmatch(result)
+		if len(subs) > 1 {
+			result = subs[1]
+		} else if len(subs) == 1 {
+			result = subs[0]
 		}
 	}
 
@@ -252,14 +279,34 @@ func useOuter(ctx context.Context, o DPOuter) string {
 }
 
 // getNewTabURL 获取新标签页URL
-func getNewTabURL(ctx context.Context) string {
+// func getNewTabURL(ctx context.Context) string {
+// 	ch := chromedp.WaitNewTarget(ctx, func(info *target.Info) bool {
+// 		return info.URL != ""
+// 	})
+
+// 	select {
+// 	case <-time.After(3 * time.Second):
+// 		return ""
+// 	case id := <-ch:
+// 		nCtx, _ := chromedp.NewContext(ctx, chromedp.WithTargetID(id))
+// 		var url string
+// 		if err := chromedp.Run(nCtx, chromedp.Location(&url)); err != nil {
+// 			return ""
+// 		}
+// 		return url
+// 	}
+// }
+
+// getExtraTabUrl 获取新标签页URL
+func getExtraTabUrl(ctx context.Context) string {
+	// 时机一：最后一个click打开标签页
 	ch := chromedp.WaitNewTarget(ctx, func(info *target.Info) bool {
 		return info.URL != ""
 	})
 
 	select {
 	case <-time.After(3 * time.Second):
-		return ""
+		break
 	case id := <-ch:
 		nCtx, _ := chromedp.NewContext(ctx, chromedp.WithTargetID(id))
 		var url string
@@ -268,6 +315,16 @@ func getNewTabURL(ctx context.Context) string {
 		}
 		return url
 	}
+
+	// 时机二：过程中click打开标签页，但是后续click可选，额外浪费了时间不能用"WaitNewTarget"
+	targets, _ := chromedp.Targets(ctx)
+	for _, t := range targets {
+		if pdfUrlReg.MatchString(t.URL) {
+			return t.URL
+		}
+	}
+
+	return ""
 }
 
 // useSelectorOf 生成最优选择器

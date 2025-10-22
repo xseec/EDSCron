@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/mozillazg/go-pinyin"
 )
 
 // 替换字符串中所有匹配的子串
@@ -129,6 +131,9 @@ func MustInts(s string, min, max int64) []int64 {
 		switch len(subs) {
 		case 1:
 			v, _ := strconv.ParseInt(subs[0], 10, 64)
+			if v < min || v > max {
+				continue
+			}
 			results = append(results, v)
 		case 2:
 			start, _ := strconv.ParseInt(subs[0], 10, 64)
@@ -179,4 +184,38 @@ func PadLeft(s string, padChar string, totalWidth int) string {
 	padding := strings.Repeat(string(char), paddingLength)
 
 	return padding + s
+}
+
+// PinyinFirstLetter 获取字符串的拼音首字母
+//
+// 参数：
+//   - s: 原始字符串
+//
+// 返回值：
+//   - 字符串的拼音首字母
+func PinyinFirstLetter(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+
+	pyArgs := pinyin.NewArgs()
+	pyArgs.Style = pinyin.FirstLetter
+	builder := strings.Builder{}
+	pinyins := pinyin.Pinyin(s, pyArgs)
+	for _, p := range pinyins {
+		builder.WriteString(strings.Join(p, ""))
+	}
+
+	return builder.String()
+}
+
+func Join[T any](items []T, sep string) string {
+	builder := strings.Builder{}
+	for i, item := range items {
+		if i > 0 {
+			builder.WriteString(sep)
+		}
+		builder.WriteString(fmt.Sprintf("%v", item))
+	}
+	return builder.String()
 }

@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/svc"
@@ -30,8 +31,16 @@ func NewGetWeathersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetWe
 
 // 获取天气预报列表
 func (l *GetWeathersLogic) GetWeathers(in *cron.WeathersReq) (*cron.WeathersRsp, error) {
-	if err := expx.HasZeroError(in, "Address", "Date", "Size"); err != nil {
+	if err := expx.HasZeroError(in, "Address"); err != nil {
 		return nil, err
+	}
+
+	if in.Date == "" {
+		in.Date = time.Now().Format("2006-01-02")
+	}
+
+	if in.Size <= 0 {
+		in.Size = 1
 	}
 
 	_, city := cronx.ExtractAddress(in.Address, true)
@@ -45,7 +54,11 @@ func (l *GetWeathersLogic) GetWeathers(in *cron.WeathersReq) (*cron.WeathersRsp,
 	}
 
 	var weas []*cron.Weather
-	copier.Copy(&weas, more)
+	for _, w := range *more {
+		var wea cron.Weather
+		copier.Copy(&wea, w)
+		weas = append(weas, &wea)
+	}
 
 	return &cron.WeathersRsp{
 		Weathers: weas,

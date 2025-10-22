@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS `area` (
+  `id` int(10) unsigned NOT NULL DEFAULT '0',
+  `parent` int(10) NOT NULL DEFAULT '0',
+  `name` varchar(120) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;

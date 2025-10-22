@@ -41,7 +41,11 @@ func (l *GetHolidaysLogic) GetHolidays(in *cron.HolidaysReq) (*cron.HolidaysRsp,
 	}
 
 	var days []*cron.Holiday
-	copier.Copy(&days, all)
+	for _, h := range *all {
+		var day cron.Holiday
+		copier.Copy(&day, h)
+		days = append(days, &day)
+	}
 
 	return &cron.HolidaysRsp{
 		Holidays: days,

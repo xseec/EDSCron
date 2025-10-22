@@ -15,6 +15,7 @@ import (
 
 type (
 	AddCarbonReq        = cron.AddCarbonReq
+	AddDlgdHourReq      = cron.AddDlgdHourReq
 	AddHolidaysReq      = cron.AddHolidaysReq
 	AvailableOptionsReq = cron.AvailableOptionsReq
 	AvailableOptionsRsp = cron.AvailableOptionsRsp
@@ -27,12 +28,16 @@ type (
 	CronsReq            = cron.CronsReq
 	CronsRsp            = cron.CronsRsp
 	DelReq              = cron.DelReq
+	DlgdHour            = cron.DlgdHour
+	DlgdHourReq         = cron.DlgdHourReq
+	DlgdHoursRsp        = cron.DlgdHoursRsp
 	GetUserOptionReq    = cron.GetUserOptionReq
 	Holiday             = cron.Holiday
 	HolidaysReq         = cron.HolidaysReq
 	HolidaysRsp         = cron.HolidaysRsp
 	PriceReq            = cron.PriceReq
 	PriceRsp            = cron.PriceRsp
+	QuickStartReq       = cron.QuickStartReq
 	ResultRsp           = cron.ResultRsp
 	TodoCronReq         = cron.TodoCronReq
 	UserOptionBody      = cron.UserOptionBody
@@ -41,6 +46,8 @@ type (
 	WeathersRsp         = cron.WeathersRsp
 
 	Cron interface {
+		// 快速开始
+		QuickStart(ctx context.Context, in *QuickStartReq, opts ...grpc.CallOption) (*ResultRsp, error)
 		// 获取任务列表
 		GetCrons(ctx context.Context, in *CronsReq, opts ...grpc.CallOption) (*CronsRsp, error)
 		// 新增任务
@@ -77,6 +84,12 @@ type (
 		UpdateUserOption(ctx context.Context, in *UserOptionBody, opts ...grpc.CallOption) (*ResultRsp, error)
 		// 删除用电档案
 		DeleteUserOption(ctx context.Context, in *DelReq, opts ...grpc.CallOption) (*ResultRsp, error)
+		// 新增用电时段
+		AddDlgdHours(ctx context.Context, in *AddDlgdHourReq, opts ...grpc.CallOption) (*ResultRsp, error)
+		// 确认用电时段
+		ConfirmDlgdHours(ctx context.Context, in *DlgdHourReq, opts ...grpc.CallOption) (*ResultRsp, error)
+		// 查询用电时段
+		GetDlgdHours(ctx context.Context, in *DlgdHourReq, opts ...grpc.CallOption) (*DlgdHoursRsp, error)
 	}
 
 	defaultCron struct {
@@ -88,6 +101,12 @@ func NewCron(cli zrpc.Client) Cron {
 	return &defaultCron{
 		cli: cli,
 	}
+}
+
+// 快速开始
+func (m *defaultCron) QuickStart(ctx context.Context, in *QuickStartReq, opts ...grpc.CallOption) (*ResultRsp, error) {
+	client := cron.NewCronClient(m.cli.Conn())
+	return client.QuickStart(ctx, in, opts...)
 }
 
 // 获取任务列表
@@ -196,4 +215,22 @@ func (m *defaultCron) UpdateUserOption(ctx context.Context, in *UserOptionBody, 
 func (m *defaultCron) DeleteUserOption(ctx context.Context, in *DelReq, opts ...grpc.CallOption) (*ResultRsp, error) {
 	client := cron.NewCronClient(m.cli.Conn())
 	return client.DeleteUserOption(ctx, in, opts...)
+}
+
+// 新增用电时段
+func (m *defaultCron) AddDlgdHours(ctx context.Context, in *AddDlgdHourReq, opts ...grpc.CallOption) (*ResultRsp, error) {
+	client := cron.NewCronClient(m.cli.Conn())
+	return client.AddDlgdHours(ctx, in, opts...)
+}
+
+// 确认用电时段
+func (m *defaultCron) ConfirmDlgdHours(ctx context.Context, in *DlgdHourReq, opts ...grpc.CallOption) (*ResultRsp, error) {
+	client := cron.NewCronClient(m.cli.Conn())
+	return client.ConfirmDlgdHours(ctx, in, opts...)
+}
+
+// 查询用电时段
+func (m *defaultCron) GetDlgdHours(ctx context.Context, in *DlgdHourReq, opts ...grpc.CallOption) (*DlgdHoursRsp, error) {
+	client := cron.NewCronClient(m.cli.Conn())
+	return client.GetDlgdHours(ctx, in, opts...)
 }

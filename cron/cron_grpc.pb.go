@@ -22,6 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CronClient interface {
+	// 快速开始
+	QuickStart(ctx context.Context, in *QuickStartReq, opts ...grpc.CallOption) (*ResultRsp, error)
 	// 获取任务列表
 	GetCrons(ctx context.Context, in *CronsReq, opts ...grpc.CallOption) (*CronsRsp, error)
 	// 新增任务
@@ -58,6 +60,12 @@ type CronClient interface {
 	UpdateUserOption(ctx context.Context, in *UserOptionBody, opts ...grpc.CallOption) (*ResultRsp, error)
 	// 删除用电档案
 	DeleteUserOption(ctx context.Context, in *DelReq, opts ...grpc.CallOption) (*ResultRsp, error)
+	// 新增用电时段
+	AddDlgdHours(ctx context.Context, in *AddDlgdHourReq, opts ...grpc.CallOption) (*ResultRsp, error)
+	// 确认用电时段
+	ConfirmDlgdHours(ctx context.Context, in *DlgdHourReq, opts ...grpc.CallOption) (*ResultRsp, error)
+	// 查询用电时段
+	GetDlgdHours(ctx context.Context, in *DlgdHourReq, opts ...grpc.CallOption) (*DlgdHoursRsp, error)
 }
 
 type cronClient struct {
@@ -66,6 +74,15 @@ type cronClient struct {
 
 func NewCronClient(cc grpc.ClientConnInterface) CronClient {
 	return &cronClient{cc}
+}
+
+func (c *cronClient) QuickStart(ctx context.Context, in *QuickStartReq, opts ...grpc.CallOption) (*ResultRsp, error) {
+	out := new(ResultRsp)
+	err := c.cc.Invoke(ctx, "/cron.Cron/QuickStart", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *cronClient) GetCrons(ctx context.Context, in *CronsReq, opts ...grpc.CallOption) (*CronsRsp, error) {
@@ -230,10 +247,39 @@ func (c *cronClient) DeleteUserOption(ctx context.Context, in *DelReq, opts ...g
 	return out, nil
 }
 
+func (c *cronClient) AddDlgdHours(ctx context.Context, in *AddDlgdHourReq, opts ...grpc.CallOption) (*ResultRsp, error) {
+	out := new(ResultRsp)
+	err := c.cc.Invoke(ctx, "/cron.Cron/AddDlgdHours", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cronClient) ConfirmDlgdHours(ctx context.Context, in *DlgdHourReq, opts ...grpc.CallOption) (*ResultRsp, error) {
+	out := new(ResultRsp)
+	err := c.cc.Invoke(ctx, "/cron.Cron/ConfirmDlgdHours", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cronClient) GetDlgdHours(ctx context.Context, in *DlgdHourReq, opts ...grpc.CallOption) (*DlgdHoursRsp, error) {
+	out := new(DlgdHoursRsp)
+	err := c.cc.Invoke(ctx, "/cron.Cron/GetDlgdHours", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CronServer is the server API for Cron service.
 // All implementations must embed UnimplementedCronServer
 // for forward compatibility
 type CronServer interface {
+	// 快速开始
+	QuickStart(context.Context, *QuickStartReq) (*ResultRsp, error)
 	// 获取任务列表
 	GetCrons(context.Context, *CronsReq) (*CronsRsp, error)
 	// 新增任务
@@ -270,6 +316,12 @@ type CronServer interface {
 	UpdateUserOption(context.Context, *UserOptionBody) (*ResultRsp, error)
 	// 删除用电档案
 	DeleteUserOption(context.Context, *DelReq) (*ResultRsp, error)
+	// 新增用电时段
+	AddDlgdHours(context.Context, *AddDlgdHourReq) (*ResultRsp, error)
+	// 确认用电时段
+	ConfirmDlgdHours(context.Context, *DlgdHourReq) (*ResultRsp, error)
+	// 查询用电时段
+	GetDlgdHours(context.Context, *DlgdHourReq) (*DlgdHoursRsp, error)
 	mustEmbedUnimplementedCronServer()
 }
 
@@ -277,6 +329,9 @@ type CronServer interface {
 type UnimplementedCronServer struct {
 }
 
+func (UnimplementedCronServer) QuickStart(context.Context, *QuickStartReq) (*ResultRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method QuickStart not implemented")
+}
 func (UnimplementedCronServer) GetCrons(context.Context, *CronsReq) (*CronsRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCrons not implemented")
 }
@@ -331,6 +386,15 @@ func (UnimplementedCronServer) UpdateUserOption(context.Context, *UserOptionBody
 func (UnimplementedCronServer) DeleteUserOption(context.Context, *DelReq) (*ResultRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteUserOption not implemented")
 }
+func (UnimplementedCronServer) AddDlgdHours(context.Context, *AddDlgdHourReq) (*ResultRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddDlgdHours not implemented")
+}
+func (UnimplementedCronServer) ConfirmDlgdHours(context.Context, *DlgdHourReq) (*ResultRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfirmDlgdHours not implemented")
+}
+func (UnimplementedCronServer) GetDlgdHours(context.Context, *DlgdHourReq) (*DlgdHoursRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDlgdHours not implemented")
+}
 func (UnimplementedCronServer) mustEmbedUnimplementedCronServer() {}
 
 // UnsafeCronServer may be embedded to opt out of forward compatibility for this service.
@@ -342,6 +406,24 @@ type UnsafeCronServer interface {
 
 func RegisterCronServer(s grpc.ServiceRegistrar, srv CronServer) {
 	s.RegisterService(&Cron_ServiceDesc, srv)
+}
+
+func _Cron_QuickStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QuickStartReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServer).QuickStart(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cron.Cron/QuickStart",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServer).QuickStart(ctx, req.(*QuickStartReq))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Cron_GetCrons_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -668,6 +750,60 @@ func _Cron_DeleteUserOption_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Cron_AddDlgdHours_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddDlgdHourReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServer).AddDlgdHours(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cron.Cron/AddDlgdHours",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServer).AddDlgdHours(ctx, req.(*AddDlgdHourReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cron_ConfirmDlgdHours_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DlgdHourReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServer).ConfirmDlgdHours(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cron.Cron/ConfirmDlgdHours",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServer).ConfirmDlgdHours(ctx, req.(*DlgdHourReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cron_GetDlgdHours_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DlgdHourReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CronServer).GetDlgdHours(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cron.Cron/GetDlgdHours",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CronServer).GetDlgdHours(ctx, req.(*DlgdHourReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Cron_ServiceDesc is the grpc.ServiceDesc for Cron service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -675,6 +811,10 @@ var Cron_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "cron.Cron",
 	HandlerType: (*CronServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "QuickStart",
+			Handler:    _Cron_QuickStart_Handler,
+		},
 		{
 			MethodName: "GetCrons",
 			Handler:    _Cron_GetCrons_Handler,
@@ -746,6 +886,18 @@ var Cron_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteUserOption",
 			Handler:    _Cron_DeleteUserOption_Handler,
+		},
+		{
+			MethodName: "AddDlgdHours",
+			Handler:    _Cron_AddDlgdHours_Handler,
+		},
+		{
+			MethodName: "ConfirmDlgdHours",
+			Handler:    _Cron_ConfirmDlgdHours_Handler,
+		},
+		{
+			MethodName: "GetDlgdHours",
+			Handler:    _Cron_GetDlgdHours_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

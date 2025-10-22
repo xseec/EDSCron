@@ -3,8 +3,6 @@ package cronx
 // 输出格式枚举类型
 type OutputFormat string
 
-const ()
-
 const (
 	CategorySep = ">" // 电价类别层级分隔符, 如"五、高壓及特高壓電力電價>(一)二段式時間電價"
 

@@ -4,6 +4,10 @@ package cron;
 option go_package = "./cron";
 
 service Cron {
+
+  // 快速开始
+  rpc QuickStart(QuickStartReq)   returns (ResultRsp);
+
   // 获取任务列表
   rpc GetCrons(CronsReq)            returns (CronsRsp);
 
@@ -57,8 +61,16 @@ service Cron {
 
   // 删除用电档案
   rpc DeleteUserOption(DelReq)      returns (ResultRsp);
-}
 
+  // 新增用电时段
+  rpc AddDlgdHours(AddDlgdHourReq) returns (ResultRsp);
+
+  // 确认用电时段
+  rpc ConfirmDlgdHours(DlgdHourReq) returns (ResultRsp);
+
+  // 查询用电时段
+  rpc GetDlgdHours(DlgdHourReq) returns (DlgdHoursRsp);
+}
 
 /********** 公共结构体 **********/
 
@@ -72,6 +84,11 @@ message ResultRsp {
 
 
 /********** 任务 **********/
+
+// 快速开始
+message QuickStartReq {
+  string address = 2;               // 用户地址
+}
 
 message CronBody {
   string category = 1;              // 任务类别，如："dlgd","holiday","weather","carbon"
@@ -199,7 +216,6 @@ message BillRsp {
   repeated BillDetail details = 7;  // 峰谷分时电量电费列表
 }
 
-
 /********** 用电档案 **********/
 
 message AvailableOptionsReq {
@@ -230,4 +246,33 @@ message UserOptionBody {
   double satSemiPeakCap = 11;       // [台湾]周六半尖峰契约
   double offPeakCap = 12;           // [台湾]离峰契约
   int64 id = 13;                    // 
+}
+
+/********** 用电时段 **********/
+
+message AddDlgdHourReq {
+  string area = 1;                  // 区域
+  string comment = 2;               // 原始文本
+}
+
+message DlgdHourReq {
+  string area = 1;                  // 区域
+  string docNo = 2;                 // 政策文号
+}
+
+message DlgdHour {
+  string area = 1;                  // 区域
+  string docNo = 2;                 // 政策文号
+  int64  confirm = 3;               // 确认有效
+  string name = 4;                  // 时段名称
+  string value = 5;                 // 时段值
+  string temp = 6;                  // 温度条件，如：其他月份中广州日最高气温达到35℃
+  string months = 7;                // 月份条件
+  string weekendMonths = 8;         // 月份-休息日条件
+  string holidays = 9;              // 节假日条件，如：春节,劳动节,国庆节
+  string categories = 10;           // 用电类别条件，如：容量315千伏安及以上,两部制
+}
+
+message DlgdHoursRsp {
+  repeated DlgdHour hours = 1; // 用电时段列表
 }
