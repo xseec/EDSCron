@@ -2,6 +2,7 @@ package cronx
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -22,24 +23,38 @@ type TwCarbonConfig struct {
 	Dp         chromedpx.DP `json:"dp"`           // 网页爬虫配置
 }
 
+// DefaultTwCarbonTask 默认的台湾碳排放因子获取任务
+func DefaultTwCarbonTask() string {
+	cfg := TwCarbonConfig{
+		Dp: chromedpx.DP{
+			Urls: []chromedpx.DPUrl{
+				{
+					Url: "https://99z.top/https://www.moeaea.gov.tw/ecw/populace/content/SubMenu.aspx?menu_id=114",
+				},
+			},
+			Outer: chromedpx.DPOuter{
+				Host:     "https://99z.top/https://www.moeaea.gov.tw/ecw/populace/content",
+				Pattern:  "href=\"([^\"]*)\"",
+				Selector: `a[title*='2006年度電力排碳係數']`, // 2006为年份占位符
+			},
+		},
+	}
+	task, _ := json.Marshal(cfg)
+	return string(task)
+}
+
 // Run 获取台湾的电力排碳系数
-//
-// 参数:
-//   - m: 邮件配置（用于错误处理）
-//
-// 返回:
-//   - []CarbonFactor: 碳排放因子列表
-//   - error: 错误信息
 func (c *TwCarbonConfig) Run(m *MailConfig) (*[]CarbonFactor, error) {
-	var url, pdfPath, wordPath string
+	var url, pdfPath string
 	var year int
 	var value float64
+
+	// c.Dp.IsVisible = true
 
 	// 处理完成后清理临时文件（调试模式下保留）
 	defer func() {
 		if !c.Dp.IsVisible {
 			os.Remove(pdfPath)
-			os.Remove(wordPath)
 		}
 	}()
 
@@ -56,14 +71,17 @@ func (c *TwCarbonConfig) Run(m *MailConfig) (*[]CarbonFactor, error) {
 	actions := []Action{
 		crawlAc(ctx, adjustDp, &url),
 		localizeAc(&url, &pdfPath),
-		pdfConvertAc(&pdfPath, &wordPath, formatWord),
-		extractTwCarbonAc(&wordPath, &value),
+		extractTwCarbonAc(&pdfPath, &value),
 	}
 
 	// 顺序执行各个处理步骤
 	for i, ac := range actions {
 		if err := ac(); err != nil {
 			return nil, fmt.Errorf("执行任务步骤%d失败: %w", i, err)
+		}
+
+		if c.Dp.IsVisible {
+			fmt.Printf("执行任务步骤%d成功\n", i)
 		}
 	}
 
@@ -78,7 +96,7 @@ func (c *TwCarbonConfig) Run(m *MailConfig) (*[]CarbonFactor, error) {
 	return &[]CarbonFactor{
 		{
 			Year:  int64(year),
-			Area:  taiwanAreaName,
+			Area:  TaiwanAreaName,
 			Value: value,
 		},
 	}, nil
@@ -87,7 +105,7 @@ func (c *TwCarbonConfig) Run(m *MailConfig) (*[]CarbonFactor, error) {
 func extractTwCarbonAc(path *string, value *float64) Action {
 	return func() error {
 		var content string
-		if err := readWord(*path, &content); err != nil {
+		if err := readPdf(*path, 1, &content); err != nil {
 			return err
 		}
 

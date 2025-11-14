@@ -2,41 +2,57 @@ package cronx
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
-	"math"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
-	aliapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
-	pdf "github.com/pdfcpu/pdfcpu/pkg/api"
 	"seeccloud.com/edscron/pkg/chromedpx"
 	"seeccloud.com/edscron/pkg/x/slicex"
 )
 
 // TwdlConfig 台湾电价获取配置
 type TwdlConfig struct {
-	FileSize string        `json:"file_size"` // 电价表文件大小，因页面上无任何时间标签，基于文件大小判定是否发布新电价
-	Ocr      aliapi.Config `json:"ocr"`       // 阿里云OCR配置
-	Dp       chromedpx.DP  `json:"dp"`        // 网页爬虫配置
+	FileSize string       `json:"file_size"` // 电价表文件大小，因页面上无任何时间标签，基于文件大小判定是否发布新电价
+	Ocr      AliOcr       `json:"ocr"`       // 阿里云OCR配置
+	Dp       chromedpx.DP `json:"dp"`        // 网页爬虫配置
+}
+
+func DefaultTwdlTask() string {
+	cfg := TwdlConfig{
+		Dp: chromedpx.DP{
+			Urls: []chromedpx.DPUrl{
+				{
+					Url: "https://99z.top/https://www.taipower.com.tw/2289/2290/46940/46945/normalPost",
+				},
+			},
+			Outer: chromedpx.DPOuter{
+				Selector: `body`,
+			},
+		},
+	}
+	task, _ := json.Marshal(cfg)
+	return string(task)
 }
 
 func (c *TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]Holiday, error) {
 
-	var url, calUrl, calPdfPath, calExcelPath, pdfPath, wordPath, firstPafPath, subsPdfPath, excelPath string
+	var url, calUrl, calPdfPath, calExcelPath, pdfPath, subsPdfPath, excelPath string
 	startDate := ""
 	fileSize := c.FileSize
 	page := make([]string, 1)
 	values := make([]TwdlRow, 0)
 	offPeakDays := make([]string, 0)
 
+	// 调试模式
+	// c.Dp.IsVisible = true
+
 	defer func() {
 		if !c.Dp.IsVisible {
 			os.Remove(pdfPath)
-			os.Remove(wordPath)
-			os.Remove(firstPafPath)
 			os.Remove(subsPdfPath)
 			os.Remove(excelPath)
 			os.Remove(calPdfPath)
@@ -45,13 +61,6 @@ func (c *TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]Holiday, error) {
 	}()
 
 	ctx := context.Background()
-
-	preloadActions := []Action{
-		cropPdfAc(&pdfPath, &firstPafPath, &[]string{"1"}),
-		pdfConvertAc(&firstPafPath, &wordPath, formatWord),
-		extractFirstPageAc(&wordPath, &startDate, &page),
-	}
-
 	calActions := []Action{
 		localizeAc(&calUrl, &calPdfPath),
 		pdfConvertAc(&calPdfPath, &calExcelPath, formatExcel),
@@ -63,7 +72,7 @@ func (c *TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]Holiday, error) {
 		extractContentAc(&fileSize, &url, &calUrl),
 		adjustCalendarAc(&calUrl, &calActions),
 		localizeAc(&url, &pdfPath),
-		adjustPreloadAc(&pdfPath, &page, &preloadActions),
+		extractFirstPageAc(&pdfPath, &startDate, &page),
 		cropPdfAc(&pdfPath, &subsPdfPath, &page),
 		ocrPdfAc(c.Ocr, &subsPdfPath, &url),
 		localizeAc(&url, &excelPath),
@@ -73,6 +82,10 @@ func (c *TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]Holiday, error) {
 	for i, ac := range actions {
 		if err := ac(); err != nil {
 			return nil, nil, fmt.Errorf("执行任务步骤%d失败: %w", i, err)
+		}
+
+		if c.Dp.IsVisible {
+			fmt.Printf("执行任务步骤%d成功\n", i)
 		}
 	}
 
@@ -84,14 +97,14 @@ func (c *TwdlConfig) Run(m *MailConfig) (*[]TwdlRow, *[]Holiday, error) {
 			RecordCount: len(values),
 			TargetCount: len(TwdlCategories) * 2,
 			Details:     template.HTML(formatTwdls(values, true)),
-		}, calPdfPath, calExcelPath, pdfPath, wordPath, excelPath)
+		}, calPdfPath, calExcelPath, pdfPath, excelPath)
 
 		c.FileSize = fileSize
 
 		days := slicex.MapFunc(offPeakDays, func(s string) Holiday {
 			return Holiday{
 				Area:     string(TaiwanArea),
-				Alias:    taiwanAreaName,
+				Alias:    TaiwanAreaName,
 				Date:     s,
 				Category: string(HolidayPeakOff),
 			}
@@ -133,35 +146,12 @@ func extractContentAc(fileSize, url, calendarUrl *string) Action {
 	}
 }
 
-func adjustPreloadAc(pdfPath *string, bodyPages *[]string, actions *[]Action) Action {
-
-	return func() error {
-		cnt, err := pdf.PageCountFile(*pdfPath)
-		if err != nil {
-			return err
-		}
-
-		pageNum := math.Min(float64(cnt), float64(maxPage))
-		(*bodyPages)[0] = fmt.Sprintf("1-%d", int(pageNum))
-
-		if cnt > maxPage {
-			for _, ac := range *actions {
-				if err := ac(); err != nil {
-					return fmt.Errorf("执行目录页任务失败: %w", err)
-				}
-			}
-		}
-
-		return nil
-	}
-}
-
 // extractFirstPageAc 提取目录页信息任务
-func extractFirstPageAc(wordPath, startDate *string, page *[]string) Action {
+func extractFirstPageAc(path, startDate *string, page *[]string) Action {
 	// 提取任务允许失败
 	return func() error {
 		var content string
-		if err := readWord(*wordPath, &content); err != nil {
+		if err := readPdf(*path, 1, &content); err != nil {
 			return nil
 		}
 

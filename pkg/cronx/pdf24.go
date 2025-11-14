@@ -32,14 +32,6 @@ var (
 )
 
 // pdf24Convert 将PDF文件转换为指定格式并下载
-//
-// 参数:
-//   - inPath: 输入PDF文件路径
-//   - format: 输出格式，支持Excel、Word、图片
-//   - outPath: 输出已下载文件路径指针
-//
-// 返回值:
-//   - error: 错误信息
 func pdf24Convert(inPath string, format OutputFormat, outPath *string) error {
 	inExt := filepath.Ext(inPath)
 	if strings.ToLower(inExt) != ".pdf" {
@@ -59,7 +51,7 @@ func pdf24Convert(inPath string, format OutputFormat, outPath *string) error {
 		chromedp.Flag("disable-extensions", true),
 		chromedp.Flag("no-first-run", true),
 		chromedp.Flag("no-default-browser-check", true),
-		// chromedp.Flag("headless", false),
+		// chromedp.Flag("headless", false), // 可见模式，方便调试
 	)
 
 	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
@@ -83,13 +75,13 @@ func pdf24Convert(inPath string, format OutputFormat, outPath *string) error {
 
 	// pdf24.org网址大小写敏感
 	url := fmt.Sprintf("https://tools.pdf24.org/zh/pdf-to-%s", pdf24SubUrls[format])
-	uploadId := fmt.Sprintf("#pdfTo%s > input", pdf24SubUrls[format])
+	// uploadId := fmt.Sprintf("#pdfTo%s > input", pdf24SubUrls[format])
 	err := chromedp.Run(ctx,
 		browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllow).
 			WithDownloadPath(downloadDir).
 			WithEventsEnabled(true),
 		chromedp.Navigate(strings.ToLower(url)),
-		chromedp.SetUploadFiles(uploadId, []string{inPath}),
+		chromedp.SetUploadFiles("input[type='file']", []string{inPath}),
 		chromedp.WaitNotPresent("button.btn.action.convert.disabled"),
 		chromedp.Click("button.btn.action.convert"),
 		chromedp.Click("#downloadTool"),

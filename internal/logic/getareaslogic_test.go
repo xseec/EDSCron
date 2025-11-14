@@ -6,6 +6,50 @@ import (
 	"seeccloud.com/edscron/internal/testsetup"
 )
 
+func TestFindCapital(t *testing.T) {
+	tests := []struct {
+		area    string
+		capital string
+	}{
+		{
+			area:    "中国",
+			capital: "北京",
+		}, {
+			area:    "集美",
+			capital: "福州",
+		},
+		{
+			area:    "厦门",
+			capital: "福州",
+		},
+		{
+			area:    "福州",
+			capital: "福州",
+		},
+		{
+			area:    "福建",
+			capital: "福州",
+		},
+		{
+			area:    "泉州/漳州/南平",
+			capital: "福州",
+		},
+	}
+
+	setup := testsetup.SetupTest(t)
+
+	for _, tt := range tests {
+		cap, err := setup.SvcCtx.AreaModel.GetProvincialCapital(setup.Ctx, tt.area)
+		if err != nil {
+			t.Errorf("GetProvincialCapital() error = %v", err)
+			return
+		}
+		if cap != tt.capital {
+			t.Errorf("GetProvincialCapital() got = %v, want %v", cap, tt.capital)
+		}
+	}
+}
+
 func TestFindParent(t *testing.T) {
 	tests := []struct {
 		area    string
@@ -62,7 +106,7 @@ func TestFindParent(t *testing.T) {
 	}
 }
 
-func TestGetDefaultRegion(t *testing.T) {
+func TestGetDefaultAddress(t *testing.T) {
 	setup := testsetup.SetupTest(t)
 	addrs := []string{
 		"北京市西城区西直门外大街南方电网北京办事处",
@@ -100,11 +144,11 @@ func TestGetDefaultRegion(t *testing.T) {
 	}
 
 	for _, addr := range addrs {
-		region, err := setup.SvcCtx.AreaModel.Get95598Region(setup.Ctx, addr)
+		region, err := setup.SvcCtx.AreaModel.Get95598Address(setup.Ctx, addr)
 		if err != nil {
-			t.Errorf("GetDefaultRegion() error = %v", err)
+			t.Errorf("GetDefaultAddress() error = %v", err)
 			continue
 		}
-		t.Logf("GetDefaultRegion() region = %v", region)
+		t.Logf("GetDefaultAddress() region = %v", region)
 	}
 }

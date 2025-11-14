@@ -10,12 +10,13 @@ import (
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/svc"
 	"seeccloud.com/edscron/model"
+	"seeccloud.com/edscron/pkg/copierx"
 	"seeccloud.com/edscron/pkg/cronx"
 	"seeccloud.com/edscron/pkg/vars"
 	"seeccloud.com/edscron/pkg/x/expx"
 	"seeccloud.com/edscron/pkg/x/slicex"
+	"seeccloud.com/edscron/pkg/x/timex"
 
-	"github.com/jinzhu/copier"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -39,12 +40,14 @@ func (l *GetMonthlyBillLogic) GetMonthlyBill(in *cron.BillReq) (*cron.BillRsp, e
 		return nil, err
 	}
 
-	monthStart, err := time.ParseInLocation(vars.MonthFormat, in.Month, time.Local)
+	monthStart := timex.MustMonth(in.Month)
+
+	option, err := l.svcCtx.OptionModel.FindOneByAccountNearlyArea(l.ctx, in.Account, in.Area)
 	if err != nil {
 		return nil, err
 	}
 
-	option, err := l.svcCtx.OptionModel.FindOneByAccountNearlyArea(l.ctx, in.Account, in.Area)
+	option, err = l.svcCtx.OptionModel.FindOneByAccountNearlyArea(l.ctx, in.Account, in.Area)
 	if err != nil {
 		return nil, err
 	}
@@ -125,12 +128,8 @@ func GetTwdlBill(l *GetMonthlyBillLogic, option model.UserOption, monthStart tim
 	basicFee = math.Round(basicFee*100) / 100
 	usageFee = math.Round(usageFee*100) / 100
 	stageFee = math.Round(stageFee*100) / 100
-	details := make([]*cron.BillDetail, 0)
-	for _, v := range periods {
-		var detail cron.BillDetail
-		copier.Copy(&detail, v)
-		details = append(details, &detail)
-	}
+	details := []*cron.BillDetail{}
+	copierx.MustCopy(&details, periods)
 
 	return &cron.BillRsp{
 		Fee:      math.Round((basicFee+usageFee+stageFee)*10) / 10,
@@ -179,7 +178,7 @@ func GetDlgdBill(l *GetMonthlyBillLogic, option model.UserOption, monthStart tim
 		totalEp += v.Usage
 		usageFee += v.Usage * v.Price
 		var detail cron.BillDetail
-		copier.Copy(&detail, v)
+		copierx.MustCopy(&detail, v)
 		details = append(details, &detail)
 	}
 

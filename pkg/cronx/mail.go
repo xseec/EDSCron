@@ -11,11 +11,12 @@ import (
 
 // 预定义的邮件主题
 const (
-	SubjectDlgdWarning    MailSubject = "[警告]代理购电异常"
-	SubjectHolidayNotice  MailSubject = "[通知]节假日更新"
-	SubjectEmptyData      MailSubject = "[警告]空记录"
-	SubjectTwdlNotice     MailSubject = "[通知]台湾电价表更新"
-	SubjectTwCarbonNotice MailSubject = "[通知]台湾碳排因子更新"
+	SubjectDlgdWarning     MailSubject = "[警告]代理购电异常"
+	SubjectHolidayNotice   MailSubject = "[通知]节假日更新"
+	SubjectEmptyData       MailSubject = "[警告]空记录"
+	SubjectTwdlNotice      MailSubject = "[通知]台湾电价表更新"
+	SubjectTwCarbonNotice  MailSubject = "[通知]台湾碳排因子更新"
+	SubjectDlgdHourConfirm MailSubject = "[通知]时段划分确认"
 )
 
 // MailConfig 邮件服务器配置
@@ -36,6 +37,25 @@ type MailTemplate interface {
 	Body() (string, error)
 }
 
+type DlgdHourConfirmTemplate struct {
+	Area   string
+	Month  string
+	DocNo  string
+	Detail template.HTML
+}
+
+func (t DlgdHourConfirmTemplate) Subject() MailSubject {
+	return SubjectDlgdHourConfirm
+}
+
+func (t DlgdHourConfirmTemplate) Body() (string, error) {
+	if t.DocNo == "" {
+		t.DocNo = "无"
+	}
+	const tpl = `<p>区域：<b>{{.Area}}</b></p><p>月份：<b>{{.Month}}</b></p><p>政策文号：<b>{{.DocNo}}</b></p><p>时段划分：</p><div>{{.Detail | safeHTML}}</div>`
+	return renderTemplate(tpl, t)
+}
+
 // DlgdWarningTemplate 电价获取失败模板
 type DlgdWarningTemplate struct {
 	Remark string
@@ -54,7 +74,8 @@ func (t DlgdWarningTemplate) Body() (string, error) {
 // HolidayNoticeTemplate 节假日获取成功模板
 type HolidayNoticeTemplate struct {
 	Area    string
-	Details string
+	Year    int
+	Details template.HTML
 }
 
 func (t HolidayNoticeTemplate) Subject() MailSubject {
@@ -62,7 +83,7 @@ func (t HolidayNoticeTemplate) Subject() MailSubject {
 }
 
 func (t HolidayNoticeTemplate) Body() (string, error) {
-	const tpl = `<p><b>{{.Area}}</b>假期安排</p>{{.Details}}`
+	const tpl = `<p><b>{{.Area}} {{.Year}}年</b>节假日安排：</p>{{.Details | safeHTML}}`
 	return renderTemplate(tpl, t)
 }
 

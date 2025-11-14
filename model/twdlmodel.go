@@ -10,7 +10,6 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"seeccloud.com/edscron/pkg/cronx"
-	"seeccloud.com/edscron/pkg/vars"
 	"seeccloud.com/edscron/pkg/x/timex"
 )
 
@@ -68,10 +67,7 @@ func (m *customTwdlModel) FindOneByDayStartTimeCategory(ctx context.Context, day
 		return nil, err
 	}
 
-	t, err := time.ParseInLocation(vars.DatetimeFormat, dayStart, time.Local)
-	if err != nil {
-		return nil, err
-	}
+	t := timex.MustTime(dayStart)
 
 	// 基于日期选择夏月或非夏月记录
 	for _, v := range values {
@@ -86,10 +82,7 @@ func (m *customTwdlModel) FindOneByDayStartTimeCategory(ctx context.Context, day
 
 func (d *Twdl) GetPrice(now string, isOffPeakDay bool) cronx.Period {
 	var period cronx.Period
-	t, err := time.ParseInLocation(vars.DatetimeFormat, now, time.Local)
-	if err != nil {
-		return period
-	}
+	t := timex.MustTime(now)
 
 	// 周日或离峰日
 	if t.Weekday() == time.Sunday || isOffPeakDay {

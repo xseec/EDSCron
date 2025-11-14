@@ -219,3 +219,19 @@ func Join[T any](items []T, sep string) string {
 	}
 	return builder.String()
 }
+
+func Append(s string, sep string, items ...string) string {
+	s = strings.Trim(s, sep)
+	for _, item := range items {
+		if len(item) == 0 {
+			continue
+		}
+
+		if len(s) > 0 {
+			s += sep
+		}
+		s += item
+	}
+
+	return s
+}

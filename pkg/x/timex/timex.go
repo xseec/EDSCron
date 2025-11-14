@@ -8,12 +8,16 @@ import (
 	"time"
 )
 
+const twEraOffset = 1911 // 民国元年偏移量（1912年为民国1年）
+
+// SubTomorrow 计算当到明天零时时间差，用于缓存本日
 func SubTomorrow() time.Duration {
 	now := time.Now()
 	tomorrow := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
 	return tomorrow.Sub(now)
 }
 
+// Add 时间偏移, intervals 顺序: 年, 月, 日, 时, 分, 秒
 func Add(t time.Time, intervals ...int) time.Time {
 	result := t
 	operations := []func(time.Time, int) time.Time{
@@ -37,91 +41,23 @@ func Add(t time.Time, intervals ...int) time.Time {
 	return result
 }
 
-// TwYear 将公历年份转换为民国年份(台湾地区使用的年份系统)
-//
-// 参数:
-//
-//	y - 公历年份
-//
-// 返回值:
-//
-//	民国年份(公历年份减去1911)
 func TwYear(y int) int {
-	return y - 1911
+	return y - twEraOffset
 }
 
-// Year 将民国年份转换为公历年份
-//
-// 参数:
-//
-//	twY - 民国年份
-//
-// 返回值:
-//
-//	公历年份(民国年份加上1911)
 func Year(twY int) int {
 	if twY >= 1000 {
 		return twY
 	}
 
-	return twY + 1911
+	return twY + twEraOffset
 }
 
-// NowTwYear 获取当前的民国年份
-//
-// 返回值:
-//
-//	当前时间的民国年份
 func NowTwYear() int {
 	return TwYear(time.Now().Year())
 }
 
-// ParseTwDate 解析民国年份的日期字符串为时间对象
-//
-// 参数:
-//
-//	layout - 日期格式布局(如"2006/01/02")
-//	value - 包含民国年份的日期字符串(如"113年10月1日")
-//
-// 返回值:
-//
-//	时间对象和可能的错误
-func ParseTwDate(layout, value string) (time.Time, error) {
-	// 使用正则表达式提取民国年份和剩余部分
-	re := regexp.MustCompile(`^(\d{3})(.*)$`)
-	matches := re.FindStringSubmatch(value)
-	if len(matches) != 3 {
-		return time.Time{}, fmt.Errorf("无效的民国日期格式: %s", value)
-	}
-
-	// 转换民国年份为公元年份
-	twYear, _ := strconv.Atoi(matches[1])
-	adYear := twYear + 1911
-
-	// 构建公元日期字符串
-	adDate := fmt.Sprintf("%d%s", adYear, matches[2])
-
-	// 解析日期
-	t, err := time.ParseInLocation(layout, adDate, time.Local)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("日期解析失败: %w", err)
-	}
-
-	return t, nil
-}
-
-// FormatTwDate 将时间格式化为包含民国年份的字符串（民国年份 = 公历年份 - 1911）
-//
-// 参数:
-//
-//	t       - 时间对象
-//	layout  - 日期格式布局（如 "2006/01/02"）
-//
-// 返回值:
-//
-//	格式化后的日期字符串（民国年份替代公历年份）
 func FormatTwDate(t time.Time, layout string) string {
-	const twEraOffset = 1911 // 民国元年偏移量（1912年为民国1年）
 	twYear := t.Year() - twEraOffset
 	if twYear <= 0 {
 		twYear = 1 // 处理1911年之前的年份
@@ -132,16 +68,6 @@ func FormatTwDate(t time.Time, layout string) string {
 	return t.Format(layout)
 }
 
-// IsDateInRange 检查给定的时间是否在指定的日期范围内
-//
-// 参数:
-//
-//	t - 要检查的时间
-//	dates - 日期范围字符串，格式为 "MMDD-MMDD,MMDD-MMDD"
-//
-// 返回值:
-//
-//	如果时间在范围内，返回 true；否则返回 false
 func IsDateInRange(t time.Time, dates string) bool {
 	// 处理空字符串
 	if dates == "" {
@@ -165,21 +91,13 @@ func IsDateInRange(t time.Time, dates string) bool {
 	return false
 }
 
-// IsHourInRange 检查给定的时间是否在指定的时间范围内
-//
-// 参数:
-//
-//	t - 要检查的时间
-//	timeRanges - 时间范围字符串，格式为 "HHMM-HHMM,HHMM-HHMM"
-//
-// 返回值:
-//
-//	如果时间在范围内，返回 true；否则返回 false
 func IsHourInRange(t time.Time, timeRanges string) bool {
 	// 处理空字符串
 	if timeRanges == "" {
 		return false
 	}
+
+	timeRanges = regexp.MustCompile(`(\d{2}):(\d{2})`).ReplaceAllString(timeRanges, "$1$2")
 
 	currentTime := t.Format("1504") // 当前时间的 "HHMM" 格式
 
@@ -217,4 +135,67 @@ func IsHourInRange(t time.Time, timeRanges string) bool {
 	}
 
 	return false
+}
+
+// MustTime 解析多种时间格式
+func MustTime(value string) time.Time {
+	if len(value) == 0 {
+		return time.Now()
+	}
+
+	layouts := []string{
+		"2006-1-2 15:4:5",
+		"2006-1-2 15:4",
+		"2006-1-2 15",
+		"2006-1-2",
+		"2006-1",
+		"2006",
+
+		"20060102150405",
+		"20060102",
+
+		"2006年1月2日 15:4:5",
+		"2006年1月2日 15:4",
+		"2006年1月2日 15时4分5秒",
+		"2006年1月2日 15时4分",
+		"2006年1月2日 15时",
+		"2006年1月2日",
+		"2006年1月",
+		"2006年",
+
+		"2006-01-02 15:04:05 -0700 MST",
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05+08:00",
+	}
+
+	value = strings.ReplaceAll(value, "点", "时")
+	value = regexp.MustCompile(`0([1-9])([月日时分秒])`).ReplaceAllString(value, "$1$2")
+	value = regexp.MustCompile(`\s+`).ReplaceAllString(value, " ")
+	// 2006/1/1 → 2006-1-1
+	value = regexp.MustCompile(`/(\d+)`).ReplaceAllString(value, "-$1")
+	// 民国100~199年：2011年-2110年，已能满足需求
+	value = regexp.MustCompile(`^1\d{2}[年\-]`).ReplaceAllStringFunc(value, func(s string) string {
+		year, _ := strconv.Atoi(s[:3])
+		return fmt.Sprintf("%d%s", year+twEraOffset, s[3:])
+	})
+
+	// 尝试解析处理后的value
+	for _, layout := range layouts {
+		t, err := time.ParseInLocation(layout, value, time.Local)
+		if err == nil {
+			return t
+		}
+	}
+
+	return time.Now()
+}
+
+func MustDate(value string) time.Time {
+	t := MustTime(value)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
+}
+
+func MustMonth(value string) time.Time {
+	t := MustTime(value)
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.Local)
 }

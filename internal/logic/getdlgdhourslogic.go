@@ -38,7 +38,7 @@ func (l *GetDlgdHoursLogic) GetDlgdHours(in *cron.DlgdHourReq) (*cron.DlgdHoursR
 	}
 
 	var hours []*cron.DlgdHour
-	copierx.Copy(&hours, all)
+	copierx.MustCopy(&hours, all)
 
 	return &cron.DlgdHoursRsp{
 		Hours: hours,

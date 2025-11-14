@@ -7,10 +7,9 @@ import (
 
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/svc"
+	"seeccloud.com/edscron/pkg/copierx"
 	"seeccloud.com/edscron/pkg/cronx"
 	"seeccloud.com/edscron/pkg/x/expx"
-
-	"github.com/jinzhu/copier"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -48,17 +47,13 @@ func (l *GetWeathersLogic) GetWeathers(in *cron.WeathersReq) (*cron.WeathersRsp,
 		return nil, fmt.Errorf("依提供地址无法筛查市级信息, Address: %s", in.Address)
 	}
 
-	more, err := l.svcCtx.WeatherModel.FindMoreByDateCity(l.ctx, in.Date, city, in.Size)
+	more, err := l.svcCtx.WeatherModel.FindAllByDateCity(l.ctx, in.Date, city, in.Size)
 	if err != nil {
 		return nil, err
 	}
 
 	var weas []*cron.Weather
-	for _, w := range *more {
-		var wea cron.Weather
-		copier.Copy(&wea, w)
-		weas = append(weas, &wea)
-	}
+	copierx.MustCopy(&weas, more)
 
 	return &cron.WeathersRsp{
 		Weathers: weas,

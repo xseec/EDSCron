@@ -68,6 +68,7 @@ type (
 		DeepHour   string    `db:"deep_hour"`   // 深谷时段
 		Demand     float64   `db:"demand"`      // 需量电价
 		Capacity   float64   `db:"capacity"`    // 容量电价
+		DocNo      string    `db:"doc_no"`      // 电价政策文号
 		CreateTime time.Time `db:"create_time"`
 		UpdateTime time.Time `db:"update_time"`
 	}
@@ -136,8 +137,8 @@ func (m *defaultDlgdModel) Insert(ctx context.Context, data *Dlgd) (sql.Result, 
 	edsCronDlgdAreaStartTimeCategoryVoltageStageKey := fmt.Sprintf("%s%v:%v:%v:%v:%v", cacheEdsCronDlgdAreaStartTimeCategoryVoltageStagePrefix, data.Area, data.StartTime, data.Category, data.Voltage, data.Stage)
 	edsCronDlgdIdKey := fmt.Sprintf("%s%v", cacheEdsCronDlgdIdPrefix, data.Id)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, dlgdRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Area, data.StartTime, data.EndTime, data.Category, data.Voltage, data.Stage, data.Fund, data.Sharp, data.SharpDate, data.SharpHour, data.Peak, data.PeakDate, data.PeakHour, data.Flat, data.FlatDate, data.FlatHour, data.Valley, data.ValleyDate, data.ValleyHour, data.Deep, data.DeepDate, data.DeepHour, data.Demand, data.Capacity)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, dlgdRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.Area, data.StartTime, data.EndTime, data.Category, data.Voltage, data.Stage, data.Fund, data.Sharp, data.SharpDate, data.SharpHour, data.Peak, data.PeakDate, data.PeakHour, data.Flat, data.FlatDate, data.FlatHour, data.Valley, data.ValleyDate, data.ValleyHour, data.Deep, data.DeepDate, data.DeepHour, data.Demand, data.Capacity, data.DocNo)
 	}, edsCronDlgdAreaStartTimeCategoryVoltageStageKey, edsCronDlgdIdKey)
 	return ret, err
 }
@@ -152,7 +153,7 @@ func (m *defaultDlgdModel) Update(ctx context.Context, newData *Dlgd) error {
 	edsCronDlgdIdKey := fmt.Sprintf("%s%v", cacheEdsCronDlgdIdPrefix, data.Id)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, dlgdRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.Area, newData.StartTime, newData.EndTime, newData.Category, newData.Voltage, newData.Stage, newData.Fund, newData.Sharp, newData.SharpDate, newData.SharpHour, newData.Peak, newData.PeakDate, newData.PeakHour, newData.Flat, newData.FlatDate, newData.FlatHour, newData.Valley, newData.ValleyDate, newData.ValleyHour, newData.Deep, newData.DeepDate, newData.DeepHour, newData.Demand, newData.Capacity, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.Area, newData.StartTime, newData.EndTime, newData.Category, newData.Voltage, newData.Stage, newData.Fund, newData.Sharp, newData.SharpDate, newData.SharpHour, newData.Peak, newData.PeakDate, newData.PeakHour, newData.Flat, newData.FlatDate, newData.FlatHour, newData.Valley, newData.ValleyDate, newData.ValleyHour, newData.Deep, newData.DeepDate, newData.DeepHour, newData.Demand, newData.Capacity, newData.DocNo, newData.Id)
 	}, edsCronDlgdAreaStartTimeCategoryVoltageStageKey, edsCronDlgdIdKey)
 	return err
 }

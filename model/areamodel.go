@@ -3,7 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
-	"slices"
+	"regexp"
 	"strings"
 
 	"github.com/zeromicro/go-zero/core/stores/cache"
@@ -13,13 +13,12 @@ import (
 )
 
 var (
-	_ AreaModel = (*customAreaModel)(nil)
-
-	munic                        = "市辖区"
-	shenzhen                     = "深圳"
-	defCities                    = map[string]string{"西安市": "长安区"}
-	cacheEdsCronAreaParentPrefix = "cache:edsCron:area:parent:"
-	cacheEdsCronAreaRegionPrefix = "cache:edsCron:area:region:"
+	_                             AreaModel = (*customAreaModel)(nil)
+	munic                                   = "市辖区"
+	defCities                               = map[string]string{"西安市": "长安区"}
+	cacheEdsCronAreaParentPrefix            = "cache:edsCron:area:parent:"
+	cacheEdsCronAreaRegionPrefix            = "cache:edsCron:area:region:"
+	cacheEdsCronAreaCapitalPrefix           = "cache:edsCron:area:capital:"
 )
 
 type (
@@ -28,17 +27,12 @@ type (
 	AreaModel interface {
 		areaModel
 		FindParent(ctx context.Context, area string) (*Area, error)
-		Get95598Region(ctx context.Context, address string) (*Region, error)
+		Get95598Address(ctx context.Context, address string) (*Address, error)
+		GetProvincialCapital(ctx context.Context, area string) (string, error)
 	}
 
 	customAreaModel struct {
 		*defaultAreaModel
-	}
-
-	Region struct {
-		Province string `db:"province"`
-		City     string `db:"city"`
-		Area     string `db:"area"`
 	}
 )
 
@@ -92,8 +86,8 @@ func (m *customAreaModel) FindParent(ctx context.Context, area string) (*Area, e
 	}
 }
 
-func (m *customAreaModel) Get95598Region(ctx context.Context, address string) (*Region, error) {
-	var resp Region
+func (m *customAreaModel) Get95598Address(ctx context.Context, address string) (*Address, error) {
+	var resp Address
 
 	prv, cty := cronx.ExtractAddress(address, true)
 	resp.Province = prv
@@ -120,16 +114,16 @@ func (m *customAreaModel) Get95598Region(ctx context.Context, address string) (*
 		return nil, err
 	}
 
-	// 蒙东电网
-	if slices.Contains(cronx.NeimengdongCities, cty) {
-		// 省会呼和浩特隶属蒙西电网
+	// 相同电价区域应用默认城市，避免出现重复任务，如"厦门"使用"福州"
+	if defCity := cronx.GetDefaultCity(cty); len(defCity) > 0 {
+		// 非省会城市
 		query = fmt.Sprintf("select %s from %s where `parent` = ? and `name` like ? limit 1", areaRows, m.table)
-		err = m.QueryRowNoCacheCtx(ctx, &city, query, province.Id, cronx.NeimengdongCities[0]+"%")
+		err = m.QueryRowNoCacheCtx(ctx, &city, query, province.Id, defCity+"%")
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		// 查省会城市
+		// 其他默认省会城市
 		query = fmt.Sprintf("select %s from %s where `parent` = ? order by `id` limit 1", areaRows, m.table)
 		err = m.QueryRowNoCacheCtx(ctx, &city, query, province.Id)
 		if err != nil {
@@ -153,7 +147,7 @@ func (m *customAreaModel) Get95598Region(ctx context.Context, address string) (*
 		area.Name = ar
 	}
 
-	resp = Region{
+	resp = Address{
 		Province: prv,
 		City:     city.Name,
 		Area:     area.Name,
@@ -161,4 +155,44 @@ func (m *customAreaModel) Get95598Region(ctx context.Context, address string) (*
 
 	m.SetCacheCtx(ctx, edsCronAreaRegionKey, resp)
 	return &resp, nil
+}
+
+func (m *customAreaModel) GetProvincialCapital(ctx context.Context, area string) (string, error) {
+	key := fmt.Sprintf("%s%v", cacheEdsCronAreaCapitalPrefix, area)
+	capital := ""
+	err := m.GetCacheCtx(ctx, key, &capital)
+	if err == nil {
+		if len(capital) == 0 {
+			return "", ErrNotFound
+		}
+
+		return capital, nil
+	}
+
+	area = regexp.MustCompile(`\p{Han}+`).FindString(area)
+	var one Area
+	query := fmt.Sprintf("select %s from %s where `name` like ? limit 1", areaRows, m.table)
+	err = m.QueryRowNoCacheCtx(ctx, &one, query, area+"%")
+	if err != nil {
+		return "", err
+	}
+
+	for one.Parent > 0 {
+		parent, err := m.FindParent(ctx, one.Name)
+		if err != nil {
+			return "", err
+		}
+
+		one = *parent
+	}
+
+	query = fmt.Sprintf("select %s from %s where `parent` = ? limit 1", areaRows, m.table)
+	err = m.QueryRowNoCacheCtx(ctx, &one, query, one.Id)
+	if err != nil {
+		return "", err
+	}
+
+	capital = cronx.Shorten(one.Name)
+	m.SetCacheCtx(ctx, key, capital)
+	return capital, nil
 }

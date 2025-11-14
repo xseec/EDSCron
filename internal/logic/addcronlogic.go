@@ -29,13 +29,10 @@ func NewAddCronLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AddCronLo
 
 // 创建任务
 func (l *AddCronLogic) AddCron(in *cron.CronBody) (*cron.ResultRsp, error) {
-	if err := svc.Format(in); err != nil {
-		return nil, err
-	}
 
 	var data model.Cron
-	copierx.Copy(&data, in)
-	result, err := l.svcCtx.CronModel.InsertOrIgnore(l.ctx, &data)
+	copierx.MustCopy(&data, in)
+	result, err := l.svcCtx.CronModel.BatchInsert(l.ctx, []model.Cron{data})
 	if err != nil {
 		return nil, err
 	}

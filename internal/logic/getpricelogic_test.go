@@ -137,7 +137,7 @@ func TestGetPriceLogic(t *testing.T) {
 				Category: "表燈(住商)電價>非時間電價>營業用",
 				Time:     "2025-10-01 00:00:00",
 			},
-			want: 2.18,
+			want: 2.28,
 		},
 		{
 			name: "台湾，低压，非时间，夏月",

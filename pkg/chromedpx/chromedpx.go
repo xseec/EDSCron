@@ -3,11 +3,14 @@ package chromedpx
 import (
 	"context"
 	"fmt"
+	"html"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/target"
@@ -23,16 +26,18 @@ type DPUrl struct {
 
 // DPOuter 定义结果提取配置
 type DPOuter struct {
-	Selector string `json:"selector" yaml:"selector"` // 结果选择器，空表示新标签页URL
-	Pattern  string `json:"pattern" yaml:"pattern"`   // 结果匹配正则表达式
-	Host     string `json:"host" yaml:"host"`         // 域名补全，用于子域名结果
+	OnlyText bool   `json:"only_text" yaml:"only_text"` // 纯文本提取
+	Selector string `json:"selector" yaml:"selector"`   // 结果选择器，空表示新标签页URL
+	Pattern  string `json:"pattern" yaml:"pattern"`     // 结果匹配正则表达式
+	Host     string `json:"host" yaml:"host"`           // 域名补全，用于子域名结果
 }
 
 // DP 定义完整的浏览器自动化配置
 type DP struct {
-	IsVisible bool    `json:"is_visible" yaml:"is_visible"` // 是否显示浏览器窗口
-	Urls      []DPUrl `json:"urls" yaml:"urls"`             // 网页操作流程
-	Outer     DPOuter `json:"outer" yaml:"outer"`           // 结果提取配置
+	IsVisible   bool    `json:"is_visible" yaml:"is_visible"`     // 是否显示浏览器窗口
+	DownloadDir string  `json:"download_dir" yaml:"download_dir"` // 下载目录
+	Urls        []DPUrl `json:"urls" yaml:"urls"`                 // 网页操作流程
+	Outer       DPOuter `json:"outer" yaml:"outer"`               // 结果提取配置
 }
 
 var (
@@ -42,29 +47,38 @@ var (
 )
 
 // Run 执行浏览器自动化流程
-//
-// 参数:
-//   - ctx: 上下文
-//   - html: 用于存储结果的指针
-//
-// 返回:
-//   - error: 执行过程中的错误
-func (dp *DP) Run(ctx context.Context, html *string) error {
+func (dp *DP) Run(ctx context.Context, content *string) error {
 	if len(dp.Urls) == 0 {
 		return fmt.Errorf("URL配置不能为空")
 	}
 
-	if html == nil {
+	if content == nil {
 		return fmt.Errorf("结果存储指针不能为nil")
 	}
 
 	// 初始化浏览器上下文
-	cctx, cancels := initDP(ctx, dp.IsVisible)
+	cctx, cancels := InitDP(ctx, dp.IsVisible)
 	defer func() {
 		for _, c := range cancels {
 			c()
 		}
 	}()
+
+	// 指定下载目录（单次生效），处理点击元素直接下载而无法捕获的问题
+	if len(dp.DownloadDir) > 0 {
+		absPath, err := filepath.Abs(dp.DownloadDir)
+		if err != nil {
+			return fmt.Errorf("获取下载目录绝对路径失败: %w", err)
+		}
+		err = chromedp.Run(cctx,
+			browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllow).
+				WithDownloadPath(absPath).
+				WithEventsEnabled(true),
+		)
+		if err != nil {
+			return fmt.Errorf("设置下载行为失败: %w", err)
+		}
+	}
 
 	// 执行每个URL的操作流程
 	for i, u := range dp.Urls {
@@ -74,8 +88,8 @@ func (dp *DP) Run(ctx context.Context, html *string) error {
 	}
 
 	// 提取最终结果
-	*html = useOuter(cctx, dp.Outer)
-	if *html == "" {
+	*content = html.UnescapeString(useOuter(cctx, dp.Outer))
+	if *content == "" {
 		return fmt.Errorf("未获取到有效结果，配置: %+v", *dp)
 	}
 
@@ -89,7 +103,6 @@ func (dp *DP) processURL(ctx context.Context, u DPUrl, urlIndex int) error {
 	maxRetries := 5               // 最大重试次数
 	baseDelay := 10 * time.Second // 基础延迟
 	var lastErr error
-
 	// 重试导航
 	for i := range maxRetries {
 		// 指数退避延迟（第一次立即重试）
@@ -199,8 +212,8 @@ func (dp *DP) executeClick(ctx context.Context, selector string, urlIndex, click
 	return chromedp.Run(ctx, actions...)
 }
 
-// initDP 初始化浏览器上下文
-func initDP(ctx context.Context, isVisible bool) (context.Context, []context.CancelFunc) {
+// InitDP 初始化浏览器上下文
+func InitDP(ctx context.Context, isVisible bool) (context.Context, []context.CancelFunc) {
 	// 基础配置
 	ops := []chromedp.ExecAllocatorOption{
 		chromedp.Flag("headless", !isVisible),
@@ -253,9 +266,20 @@ func useOuter(ctx context.Context, o DPOuter) string {
 		return url
 	}
 
+	searchCtx, cancel := context.WithTimeout(ctx, time.Second*20)
+	defer cancel()
 	// 提取当前页面内容
 	var result string
-	if err := chromedp.Run(ctx, chromedp.OuterHTML(o.Selector, &result)); err != nil {
+	// 纯文本提取
+	if o.OnlyText {
+		if err := chromedp.Run(searchCtx, chromedp.Text(o.Selector, &result)); err != nil {
+			return ""
+		}
+		return result
+	}
+
+	// HTML提取
+	if err := chromedp.Run(searchCtx, chromedp.OuterHTML(o.Selector, &result)); err != nil {
 		return ""
 	}
 
@@ -277,25 +301,6 @@ func useOuter(ctx context.Context, o DPOuter) string {
 
 	return result
 }
-
-// getNewTabURL 获取新标签页URL
-// func getNewTabURL(ctx context.Context) string {
-// 	ch := chromedp.WaitNewTarget(ctx, func(info *target.Info) bool {
-// 		return info.URL != ""
-// 	})
-
-// 	select {
-// 	case <-time.After(3 * time.Second):
-// 		return ""
-// 	case id := <-ch:
-// 		nCtx, _ := chromedp.NewContext(ctx, chromedp.WithTargetID(id))
-// 		var url string
-// 		if err := chromedp.Run(nCtx, chromedp.Location(&url)); err != nil {
-// 			return ""
-// 		}
-// 		return url
-// 	}
-// }
 
 // getExtraTabUrl 获取新标签页URL
 func getExtraTabUrl(ctx context.Context) string {

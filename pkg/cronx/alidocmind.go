@@ -46,9 +46,20 @@ type AliDocResultResp struct {
 	} `json:"data"`
 }
 
+type AliOcr struct {
+	Endpoint        string `json:"endpoint"`
+	AccessKeyId     string `json:"accessKeyId"`
+	AccessKeySecret string `json:"accessKeySecret"`
+}
+
 // aliConvertPDF 使用阿里云文档智能服务转换PDF文件
-func aliConvertPDF(config aliapi.Config, inPath string, outUrl *string, format OutputFormat) error {
+func aliConvertPDF(cfg AliOcr, inPath string, outUrl *string, format OutputFormat) error {
 	// 初始化客户端
+	config := aliapi.Config{
+		Endpoint:        &cfg.Endpoint,
+		AccessKeyId:     &cfg.AccessKeyId,
+		AccessKeySecret: &cfg.AccessKeySecret,
+	}
 	client, err := alidoc.NewClient(&config)
 	if err != nil {
 		return fmt.Errorf("初始化阿里云客户端失败: %w", err)

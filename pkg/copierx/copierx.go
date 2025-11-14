@@ -6,10 +6,11 @@ import (
 
 	"github.com/jinzhu/copier"
 	"seeccloud.com/edscron/pkg/vars"
+	"seeccloud.com/edscron/pkg/x/timex"
 )
 
-// Copy 在copier.Copy基础上，支持time.Time和int64/string的转换
-func Copy(toValue any, fromValue any) {
+// MustCopy 在copier.MustCopy基础上，支持time.Time和int64/string的转换
+func MustCopy(toValue any, fromValue any) {
 	// 先使用原始copier进行复制
 	copier.Copy(toValue, fromValue)
 
@@ -91,10 +92,7 @@ func copyStruct(toElem, fromElem reflect.Value) {
 		// string -> time.Time
 		case fromField.Type().Kind() == reflect.String && toField.Type() == reflect.TypeOf(time.Time{}):
 			strVal := fromField.String()
-			t, err := time.ParseInLocation(vars.DatetimeFormat, strVal, time.Local)
-			if err == nil {
-				toField.Set(reflect.ValueOf(t))
-			}
+			toField.Set(reflect.ValueOf(timex.MustTime(strVal)))
 
 		// time.Time -> int64
 		case fromField.Type() == reflect.TypeOf(time.Time{}) && toField.Type().Kind() == reflect.Int64:

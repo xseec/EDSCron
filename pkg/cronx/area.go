@@ -26,11 +26,17 @@ const (
 // 注意: 目前仅支持中国大陆和台湾地区的识别
 func EitherChinaOrTaiwan(address string) AreaCategory {
 	province, _ := ExtractAddress(address, true)
-	if strings.Contains(address, taiwanAreaName) || province == taiwanAreaName {
+	if strings.Contains(address, TaiwanAreaName) || province == TaiwanAreaName {
 		return TaiwanArea
 	}
 
 	return ChinaArea
+}
+
+func Shorten(name string) string {
+	return trimSuffix(name, []string{"省", "壮族自治区",
+		"回族自治区", "维吾尔自治区", "特别行政区", "古自治区", "自治区", "市",
+		"自治州", "盟", "地区", "区", "县"})
 }
 
 // ExtractAddress 从地址中提取省市级信息
@@ -78,7 +84,7 @@ func ExtractAddress(address string, short bool) (province, city string) {
 
 	// 尝试匹配台湾地区地址格式
 	if matches := regexp.MustCompile(taiwanPattern).FindStringSubmatch(address); len(matches) == 3 {
-		province, city = taiwanAreaName, matches[2]
+		province, city = TaiwanAreaName, matches[2]
 		return
 	}
 

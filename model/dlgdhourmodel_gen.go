@@ -42,7 +42,7 @@ type (
 	DlgdHour struct {
 		Id            int64  `db:"id"`
 		Area          string `db:"area"`           // 区域
-		DocNo         string `db:"doc_no"`         // 政策文号
+		DocNo         string `db:"doc_no"`         // 电价政策文号
 		Confirm       int64  `db:"confirm"`        // 确认有效，默认0：未确认
 		Name          string `db:"name"`           // 时段名称
 		Value         string `db:"value"`          // 时段值

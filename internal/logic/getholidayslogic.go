@@ -6,10 +6,10 @@ import (
 
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/svc"
+	"seeccloud.com/edscron/pkg/copierx"
 	"seeccloud.com/edscron/pkg/cronx"
 	"seeccloud.com/edscron/pkg/x/expx"
 
-	"github.com/jinzhu/copier"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -41,11 +41,7 @@ func (l *GetHolidaysLogic) GetHolidays(in *cron.HolidaysReq) (*cron.HolidaysRsp,
 	}
 
 	var days []*cron.Holiday
-	for _, h := range *all {
-		var day cron.Holiday
-		copier.Copy(&day, h)
-		days = append(days, &day)
-	}
+	copierx.MustCopy(&days, all)
 
 	return &cron.HolidaysRsp{
 		Holidays: days,

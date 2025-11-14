@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/xuri/excelize/v2"
-	"github.com/zeromicro/go-zero/core/logx"
 	"seeccloud.com/edscron/pkg/x/slicex"
 	"seeccloud.com/edscron/pkg/x/timex"
 )
@@ -281,12 +280,7 @@ SheetLoop:
 func newTwdlRows(f *excelize.File, sheet, startDate string, row, col, colSpan int, summerRange SummerRange, categories []CategoryItem, titles []string, values [][]string) []TwdlRow {
 	results := make([]TwdlRow, 0)
 	summer, nonSummer := summerRange.MustRange()
-	st, err := timex.ParseTwDate("2006年1月2日", startDate)
-	if err != nil {
-		logx.Error("解析电价生效时间失败", startDate)
-		return results
-	}
-
+	st := timex.MustDate(startDate)
 	for i := range colSpan {
 		twdl := TwdlRow{
 			StartTime: st,

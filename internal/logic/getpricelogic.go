@@ -9,12 +9,13 @@ import (
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/svc"
 	"seeccloud.com/edscron/model"
+	"seeccloud.com/edscron/pkg/copierx"
 	"seeccloud.com/edscron/pkg/cronx"
 	"seeccloud.com/edscron/pkg/vars"
 	"seeccloud.com/edscron/pkg/x/expx"
 	"seeccloud.com/edscron/pkg/x/slicex"
+	"seeccloud.com/edscron/pkg/x/timex"
 
-	"github.com/jinzhu/copier"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -42,10 +43,7 @@ func (l *GetPriceLogic) GetPrice(in *cron.PriceReq) (*cron.PriceRsp, error) {
 		in.Time = time.Now().Format(vars.DatetimeFormat)
 	}
 
-	t, err := time.ParseInLocation(vars.DatetimeFormat, in.Time, time.Local)
-	if err != nil {
-		return nil, err
-	}
+	t := timex.MustTime(in.Time)
 
 	if slicex.Contains(cronx.TwdlCategories, in.Category) {
 		return GetTwdlPrice(in.Category, t, l)
@@ -66,7 +64,7 @@ func GetTwdlPrice(category string, t time.Time, l *GetPriceLogic) (*cron.PriceRs
 
 	price := one.GetPrice(t.Format(vars.DatetimeFormat), holiday != nil && holiday.Category == string(cronx.HolidayPeakOff))
 	var rsp cron.PriceRsp
-	copier.Copy(&rsp, price)
+	copierx.MustCopy(&rsp, price)
 	return &rsp, nil
 }
 
@@ -96,6 +94,6 @@ func GetDlgdPrice(category string, t time.Time, l *GetPriceLogic) (*cron.PriceRs
 		return nil, err
 	}
 	var rsp cron.PriceRsp
-	copier.Copy(&rsp, period)
+	copierx.MustCopy(&rsp, period)
 	return &rsp, nil
 }

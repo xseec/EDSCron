@@ -192,7 +192,7 @@ func isDateActived(t time.Time, dateCondition string, holiday cronx.HolidayCateg
 	}
 
 	// 检查天气条件(温度), 格式："weather:广州>=35"
-	if strings.Contains(dateCondition, "weather") && isWeatherActived {
+	if strings.Contains(dateCondition, "temp") && isWeatherActived {
 		return true
 	}
 

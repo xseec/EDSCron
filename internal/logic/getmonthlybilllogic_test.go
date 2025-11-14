@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xuri/excelize/v2"
@@ -16,6 +15,7 @@ import (
 	"seeccloud.com/edscron/pkg/cronx"
 	"seeccloud.com/edscron/pkg/vars"
 	"seeccloud.com/edscron/pkg/x/slicex"
+	"seeccloud.com/edscron/pkg/x/timex"
 )
 
 func TestGetTwdlBill(t *testing.T) {
@@ -49,7 +49,7 @@ func TestGetTwdlBill(t *testing.T) {
 			basic:    500*173.20 + 50*34.6 + 262.5,
 		},
 		{
-			name:     "新丰厂-24年10月，低压三段，夸周期",
+			name:     "新丰厂-24年10月，低压三段，跨周期",
 			month:    "2024-10",
 			category: "低壓電力電價>時間電價>三段式",
 			area:     "测试-新丰厂",
@@ -110,7 +110,7 @@ func TestGetTwdlBill(t *testing.T) {
 				case "表灯-25年10月，非时间，阶梯电价":
 					fee = 300*2.18 + 370*3 + 800*3.61 + 1500*5.56 + (usage-3000)*5.83
 				case "表灯-25年10月，简易二段式，阶梯电价":
-					fee += (usage - 2000) * 1.02
+					fee += (usage - 2000) * 1.04
 				}
 
 			}
@@ -320,14 +320,11 @@ func randomTwdl(sheet string) (eps []float64, fee float64) {
 
 func getPriceRow(rowss [][]string, rows []string, priceLen, priceStartTimeCol, priceMonthsCol, priceWeekdaysCol, usageDateCol int, offPeakText string) int {
 	result := -1
-	date, err := time.ParseInLocation("2006-01-02", rows[usageDateCol], time.Local)
-	if err != nil {
-		return result
-	}
+	date := timex.MustDate(rows[usageDateCol])
 
 	isOffPeakDay := rows[1] == offPeakText
 	for i := range priceLen {
-		startTime, _ := time.ParseInLocation("2006-01-02", rowss[i][priceStartTimeCol], time.Local)
+		startTime := timex.MustDate(rowss[i][priceStartTimeCol])
 
 		if !date.Before(startTime) {
 			// 夏月、非夏月
@@ -360,10 +357,7 @@ func randomEps(l *GetMonthlyBillLogic, month, category string, sharp, peak, flat
 		return nil
 	}
 
-	t, err := time.ParseInLocation("2006-01", month, time.Local)
-	if err != nil {
-		return nil
-	}
+	t := timex.MustMonth(month)
 
 	area, category, voltage := splits[0], splits[1], splits[2]
 	one, err := l.svcCtx.DlgdModel.FindFirstByAreaStartTimeCategoryVoltage(l.ctx, area, t.Format(vars.DatetimeFormat), category, voltage)

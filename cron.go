@@ -22,6 +22,7 @@ import (
 var configFile = flag.String("f", "etc/cron.yaml", "the config file")
 
 func main() {
+
 	// load .env if exist
 	_ = godotenv.Load()
 

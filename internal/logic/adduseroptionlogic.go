@@ -7,10 +7,10 @@ import (
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/svc"
 	"seeccloud.com/edscron/model"
+	"seeccloud.com/edscron/pkg/copierx"
 	"seeccloud.com/edscron/pkg/vars"
 	"seeccloud.com/edscron/pkg/x/expx"
 
-	"github.com/jinzhu/copier"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -35,7 +35,7 @@ func (l *AddUserOptionLogic) AddUserOption(in *cron.UserOptionBody) (*cron.Resul
 	}
 
 	option := &model.UserOption{}
-	copier.Copy(&option, in)
+	copierx.MustCopy(&option, in)
 
 	rst, err := l.svcCtx.OptionModel.Insert(l.ctx, option)
 	if err != nil {

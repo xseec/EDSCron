@@ -7,10 +7,10 @@ import (
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/svc"
 	"seeccloud.com/edscron/model"
+	"seeccloud.com/edscron/pkg/copierx"
 	"seeccloud.com/edscron/pkg/vars"
 	"seeccloud.com/edscron/pkg/x/expx"
 
-	"github.com/jinzhu/copier"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -37,7 +37,7 @@ func (l *AddCarbonLogic) AddCarbon(in *cron.AddCarbonReq) (*cron.ResultRsp, erro
 
 	carbon, _ := l.svcCtx.CarbonModel.FindOneByAreaYear(l.ctx, in.Area, in.Year)
 	var c model.Carbon
-	copier.Copy(&c, in)
+	copierx.MustCopy(&c, in)
 	// 创建或更新
 	if carbon == nil {
 		rst, _ := l.svcCtx.CarbonModel.Insert(l.ctx, &c)

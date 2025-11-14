@@ -49,22 +49,21 @@ func (svc *ServiceContext) Todo(c *model.Cron, execTime string) {
 	ctx := context.Background()
 	// 替换任务中的时间变量为实际执行时间
 	task := []byte(strings.ReplaceAll(c.Task, c.Time, execTime))
-
 	var err error
-	switch Category(c.Category) {
-	case CategoryReDlgd: // 重试电量购电任务
+	switch model.CronCategory(c.Category) {
+	case model.CategoryReDlgd: // 重试电量购电任务
 		err = runReDlgd(ctx, svc)
-	case CategoryDlgd: // 电量购电任务
+	case model.CategoryDlgd: // 电量购电任务
 		err = runDlgd(ctx, svc, task)
-	case CategoryHoliday: // 节假日任务
+	case model.CategoryHoliday: // 节假日任务
 		err = runHoliday(ctx, svc, task)
-	case CategoryWeather: // 天气任务
+	case model.CategoryWeather: // 天气任务
 		err = runWeather(ctx, svc, task)
-	case CategoryCarbon: // 碳排放任务
+	case model.CategoryCarbon: // 碳排放任务
 		err = runCarbon(ctx, svc, task)
-	case CategoryTwCarbon: // 台湾碳排放任务
+	case model.CategoryTwCarbon: // 台湾碳排放任务
 		err = runTwCarbon(ctx, svc, &task)
-	case CategoryTwdl: // 台湾电价任务
+	case model.CategoryTwdl: // 台湾电价任务
 		err = runTwdl(ctx, svc, &task)
 	default:
 		err = fmt.Errorf("未知的任务类型: %s", c.Category)
@@ -111,22 +110,22 @@ func (svc *ServiceContext) StartCron() {
 
 			// 根据任务类型执行对应处理
 			var execErr error
-			switch Category(currentTask.Category) {
-			case CategoryReDlgd:
+			switch model.CronCategory(currentTask.Category) {
+			case model.CategoryReDlgd:
 				execErr = runReDlgd(ctx, svc)
-			case CategoryDlgd:
+			case model.CategoryDlgd:
 				execErr = runDlgd(ctx, svc, taskData)
-			case CategoryHoliday:
+			case model.CategoryHoliday:
 				execErr = runHoliday(ctx, svc, taskData)
-			case CategoryWeather:
+			case model.CategoryWeather:
 				execErr = runWeather(ctx, svc, taskData)
-			case CategoryCarbon:
+			case model.CategoryCarbon:
 				execErr = runCarbon(ctx, svc, taskData)
-			case CategoryTwCarbon:
+			case model.CategoryTwCarbon:
 				// 将最近执行年份信息写入任务数据库中
 				execErr = runTwCarbon(ctx, svc, &taskData)
 				currentTask.Task = string(taskData)
-			case CategoryTwdl:
+			case model.CategoryTwdl:
 				// 将最近执行文件大小信息写入任务数据库中
 				execErr = runTwdl(ctx, svc, &taskData)
 				currentTask.Task = string(taskData)

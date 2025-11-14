@@ -28,16 +28,11 @@ func NewUpdateCronLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Update
 
 // 更新任务
 func (l *UpdateCronLogic) UpdateCron(in *cron.CronBody) (*cron.ResultRsp, error) {
-	err := svc.Format(in)
-	if err != nil {
-		return nil, err
-	}
 
 	var data model.Cron
-	copierx.Copy(&data, in)
+	copierx.MustCopy(&data, in)
 	data.Id = in.Id
-	err = l.svcCtx.CronModel.Update(l.ctx, &data)
-	if err != nil {
+	if err := l.svcCtx.CronModel.Update(l.ctx, &data); err != nil {
 		return nil, err
 	}
 

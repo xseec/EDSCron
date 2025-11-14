@@ -5,8 +5,8 @@ import (
 
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/svc"
+	"seeccloud.com/edscron/pkg/copierx"
 
-	"github.com/jinzhu/copier"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -33,7 +33,7 @@ func (l *GetUserOptionLogic) GetUserOption(in *cron.GetUserOptionReq) (*cron.Use
 	}
 
 	var op cron.UserOptionBody
-	copier.Copy(&op, option)
+	copierx.MustCopy(&op, option)
 
 	return &op, nil
 }

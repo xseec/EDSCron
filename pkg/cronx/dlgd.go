@@ -4,125 +4,134 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"regexp"
-	"slices"
-	"strconv"
 	"strings"
 	"time"
 
-	aliapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
-	"seeccloud.com/edscron/pkg/chromedpx"
-	"seeccloud.com/edscron/pkg/x/slicex"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/zeromicro/go-zero/core/logx"
+	"seeccloud.com/edscron/pkg/x/timex"
 )
 
-// PriceHour 定义电价时段划分规则
-type PriceHour struct {
-	Months []int    `json:"months"` // 适用的月份列表(1-12)
-	Days   []string `json:"days"`   // 特殊日期定义，支持多种格式:
-	// - 气温条件: "weather:广州>=35"
-	// - 周末: "weekend:1:2:4:7" (1,2,4,7月)
-	// - 星期: "sun:1:2:4:7" (1,2,4,7月的周日)
-	// - 节假日: "holiday:元旦:春节"
-	Sharp  string `json:"sharp"`  // 尖峰时段，格式"1100-1200,1800-1830,2200-0700"
-	Peak   string `json:"peak"`   // 高峰时段
-	Flat   string `json:"flat"`   // 平时段
-	Valley string `json:"valley"` // 低谷时段
-	Deep   string `json:"deep"`   // 深谷时段，通常与特殊日期搭配使用
-}
-
-// DlgdConfig 代理购电任务配置
-type DlgdConfig struct {
-	Area  string       `json:"area"`  // 区域名称
-	Month string       `json:"month"` // 执行月份，格式"2025年3月"
-	Dp    chromedpx.DP `json:"dp"`    // 网页爬虫配置
-	Crops []string     `json:"crops"` // 裁剪范围配置:
-	// PDF: [起始页,结束页] 从1开始，如[1,3]
-	// 图片: [x1(%宽度),y1(%高度),x2(%宽度),y2(%高度)]
-	Threshold  int           `json:"threshold"`  // 图片底纹阈值(230~245)
-	Ocr        aliapi.Config `json:"ocr"`        // 阿里云OCR配置
-	Validators []string      `json:"validators"` // 验证文本列表，如公文号"国办发明电〔2024〕12号"
-	PriceHours []PriceHour   `json:"priceHours"` // 电价时段划分规则
-}
-
-// Dlgd 代理购电用户电价表
-type Dlgd struct {
-	Rows    []DlgdRow `json:"rows"`    // 电价数据行
-	Comment string    `json:"comment"` // 备注信息
-}
-
-// DlgdRow 代理购电电价明细
+// DlgdRow 代理购电电价条目
 type DlgdRow struct {
-	Area      string    `json:"area"`                              // 区域名称
-	StartTime time.Time `json:"start_time"`                        // 起始时间(Unix时间戳，包含)
-	EndTime   time.Time `json:"end_time"`                          // 结束时间(Unix时间戳，不包含)
-	Category  string    `json:"category" dlgd:"用电分类|用电类别"`         // 用电类别
-	Voltage   string    `json:"voltage" dlgd:"电压等级"`               // 电压等级
-	Stage     string    `json:"stage"`                             // 阶梯电量阈值
-	Fund      float64   `json:"fund" dlgd:"政府性基金及附加"`              // 政府性基金及附加
-	Sharp     float64   `json:"sharp" dlgd:"尖峰" unit:"true"`       // 尖峰电价
-	Peak      float64   `json:"peak" dlgd:"高峰|^峰时段" unit:"true"`   // 高峰电价，仅"峰时段"会匹配"尖峰时段"
-	Flat      float64   `json:"flat" dlgd:"平段|平时段" unit:"true"`    // 平段电价
-	Valley    float64   `json:"valley" dlgd:"低谷|^谷时段" unit:"true"` // 低谷电价，仅"谷时段"会匹配"深谷时段"
-	Deep      float64   `json:"deep" dlgd:"深谷" unit:"true"`        // 深谷电价
-	Demand    float64   `json:"demand" dlgd:"\\W*元/千瓦\\W月\\W*"`    // 需量电价
-	Capacity  float64   `json:"capacity" dlgd:"\\W*元/千伏安\\W月\\W*"` // 容量电价
-
-	// 以下字段定义特殊时段的日期和时间范围
-	SharpDate  string `json:"sharp_date"`  // 尖峰日期条件
-	SharpHour  string `json:"sharp_hour"`  // 尖峰时段，如"1100-1130,2200-0700"
-	PeakDate   string `json:"peak_date"`   // 高峰日期条件
-	PeakHour   string `json:"peak_hour"`   // 高峰时段
-	FlatDate   string `json:"flat_date"`   // 平段日期条件
-	FlatHour   string `json:"flat_hour"`   // 平段时段
-	ValleyDate string `json:"valley_date"` // 低谷日期条件
-	ValleyHour string `json:"valley_hour"` // 低谷时段
-	DeepDate   string `json:"deep_date"`   // 深谷日期条件
-	DeepHour   string `json:"deep_hour"`   // 深谷时段
+	Area       string    `json:"area"`                              // 区域名称
+	StartTime  time.Time `json:"start_time"`                        // 起始时间(Unix时间戳，包含)
+	EndTime    time.Time `json:"end_time"`                          // 结束时间(Unix时间戳，不包含)
+	Category   string    `json:"category" dlgd:"用电分类|用电类别"`         // 用电类别
+	Voltage    string    `json:"voltage" dlgd:"电压等级"`               // 电压等级
+	Stage      string    `json:"stage"`                             // 阶梯电量阈值
+	Fund       float64   `json:"fund" dlgd:"政府性基金及附加"`              // 政府性基金及附加
+	Sharp      float64   `json:"sharp" dlgd:"尖峰" unit:"true"`       // 尖峰电价
+	Peak       float64   `json:"peak" dlgd:"高峰|^峰时段" unit:"true"`   // 高峰电价，仅"峰时段"会匹配"尖峰时段"
+	Flat       float64   `json:"flat" dlgd:"平段|平时段" unit:"true"`    // 平段电价
+	Valley     float64   `json:"valley" dlgd:"低谷|^谷时段" unit:"true"` // 低谷电价，仅"谷时段"会匹配"深谷时段"
+	Deep       float64   `json:"deep" dlgd:"深谷" unit:"true"`        // 深谷电价
+	Demand     float64   `json:"demand" dlgd:"\\W*元/千瓦\\W月\\W*"`    // 需量电价
+	Capacity   float64   `json:"capacity" dlgd:"\\W*元/千伏安\\W月\\W*"` // 容量电价
+	SharpDate  string    `json:"sharp_date"`                        // 尖峰日期条件
+	SharpHour  string    `json:"sharp_hour"`                        // 尖峰时段，如"1100-1130,2200-0700"
+	PeakDate   string    `json:"peak_date"`                         // 高峰日期条件
+	PeakHour   string    `json:"peak_hour"`                         // 高峰时段
+	FlatDate   string    `json:"flat_date"`                         // 平段日期条件
+	FlatHour   string    `json:"flat_hour"`                         // 平段时段
+	ValleyDate string    `json:"valley_date"`                       // 低谷日期条件
+	ValleyHour string    `json:"valley_hour"`                       // 低谷时段
+	DeepDate   string    `json:"deep_date"`                         // 深谷日期条件
+	DeepHour   string    `json:"deep_hour"`                         // 深谷时段
+	DocNo      string    `json:"doc_no"`                            // 电价政策文档编号
 }
 
 // Run 执行代理购电任务，返回电价列表
 // 参数m用于任务失败时通知系统管理员
-func (d DlgdConfig) Run(m *MailConfig) (*[]DlgdRow, error) {
-	var url, file, excel string
+func (d DlgdConfig) Run(m *MailConfig) (*[]DlgdRow, *[]DlgdHour, error) {
+	var url, pdf, excel string
+	var actionOffset int
+
+	// 【调试模式】：正式版本注释掉以下行
+	testMode := false
+	// d.Dp.IsVisible = testMode
+	// excel = "temp/d4a5161083iort2c3q60.xlsx"
+	// actionOffset = 6
+
 	defer func() {
 		// 调试模式下保留过程文件，否则清理临时文件
 		if !d.Dp.IsVisible {
-			os.Remove(file)
+			os.Remove(pdf)
 			os.Remove(excel)
+			os.Remove(d.Dp.DownloadDir)
 		}
 	}()
 
-	dlgd := &Dlgd{}
-	row := d.initDlgdRow()
-
+	rows := make([]DlgdRow, 0)
+	hours := make([]DlgdHour, 0)
 	ctx := context.Background()
 	// 定义任务执行流程
 	actions := []Action{
-		crawlAc(ctx, d.Dp, &url),                   // 网页抓取
-		localizeAc(&url, &file),                    // 下载文件
-		cropAc(&file, d.Crops),                     // 裁剪处理
-		thresholdAc(&file, d.Threshold),            // 图片阈值处理
-		image2PdfAc(&file),                         // 图片转PDF
-		ocrPdfAc(d.Ocr, &file, &url),               // OCR识别
-		localizeAc(&url, &excel),                   // 下载OCR结果
-		unexcelizeAc(&excel, row, dlgd),            // 解析Excel数据
-		validateAc(&dlgd.Comment, d.Validators, m), // 数据验证
+		crawlAndLocalizeAc(ctx, d.Dp, &pdf),                     // 0-网页抓取并下载
+		cropAc(&pdf, d.TitlePat),                                // 1-裁剪处理
+		thresholdAc(&pdf, d.Threshold),                          // 2-图片阈值处理
+		image2PdfAc(&pdf),                                       // 3-图片转PDF
+		ocrPdfAc(d.Ocr, &pdf, &url),                             // 4-OCR识别
+		localizeAc(&url, &excel),                                // 5-下载OCR结果
+		unexcelizeAc(&excel, d.Area, d.TitlePat, &rows, &hours), // 6-解析Excel数据
 	}
 
 	// 顺序执行各个处理步骤
-	for i, ac := range actions {
+	for i, ac := range actions[actionOffset:] {
 		if err := ac(); err != nil {
-			return nil, fmt.Errorf("执行任务步骤%d失败: %w", i, err)
+			return nil, nil, fmt.Errorf("执行任务步骤%d失败: %w", i, err)
+		}
+
+		if testMode {
+			logx.Infof("执行%sdlgd任务步骤%d/%d成功\n", d.Area, i+1, len(actions)-actionOffset)
 		}
 	}
 
-	return emptyValueErr(m, d, &dlgd.Rows)
+	rows = specialiseDlgd(rows)
+	rowss, err := emptyValueErr(m, d, &rows)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return rowss, &hours, nil
+
 }
 
 // cropAc 创建文件裁剪任务
-func cropAc(name *string, params []string) Action {
+func cropAc(name *string, pattern string) Action {
 	return func() error {
-		return crop(*name, *name, params)
+		ext := strings.ToLower(path.Ext(*name))
+		if ext != ".pdf" {
+			return nil
+		}
+
+		pageCount, err := api.PageCountFile(*name)
+		if err != nil {
+			return fmt.Errorf("获取PDF页面数量失败: %w", err)
+		}
+
+		re := regexp.MustCompile(pattern)
+		re2 := regexp.MustCompile(fmt.Sprintf(`%s|%s`, voltageName, voltageSZName))
+		for i := 1; i <= pageCount; i++ {
+			content := ""
+			err = readPdf(*name, i, &content)
+			if err != nil {
+				return fmt.Errorf("读取PDF页面%d内容失败: %w", i, err)
+			}
+
+			if re.MatchString(content) && re2.MatchString(content) {
+				err = crop(*name, *name, []string{fmt.Sprintf("%d", i)})
+				if err != nil {
+					return fmt.Errorf("裁剪PDF页面%d失败: %w", i, err)
+				}
+
+				break
+			}
+		}
+
+		return nil
 	}
 }
 
@@ -141,137 +150,49 @@ func image2PdfAc(name *string) Action {
 }
 
 // unexcelizeAc 创建Excel解析任务
-func unexcelizeAc(excel *string, row DlgdRow, dlgd *Dlgd) Action {
+func unexcelizeAc(excel *string, area string, titlePat string, rows *[]DlgdRow, hours *[]DlgdHour) Action {
 	return func() error {
-		return unexcelize(*excel, row, dlgd)
+		return unexcelize(*excel, area, titlePat, rows, hours)
 	}
 }
 
-// validateAc 创建数据验证任务
-func validateAc(text *string, validators []string, m *MailConfig) Action {
-	return func() error {
-		for _, v := range validators {
-			// 处理OCR识别可能导致的特殊字符差异
-			// 例如："闽规﹝2024﹞01号文"可能被识别为"闽规[2024]01号文"
-			reg1 := regexp.MustCompile("[^\u4e00-\u9fa5a-zA-Z0-9]")
-			pat := reg1.ReplaceAllString(v, `[\s\S]{1,3}`)
-			reg2 := regexp.MustCompile(pat)
-
-			if !reg2.MatchString(*text) {
-				go m.Send(&DlgdWarningTemplate{
-					Remark: v,
-					Rule:   *text,
-				})
-				return fmt.Errorf("验证失败[%s]", v)
-			}
-		}
-		return nil
-	}
-}
-
-// initDlgdRow 初始化电价信息，包括区域、时间范围和峰谷时段配置
-func (c DlgdConfig) initDlgdRow() (d DlgdRow) {
-	d.Area = c.Area
-
-	// 解析月份时间范围
-	start, err := time.ParseInLocation("2006年1月", c.Month, time.Local)
-	if err != nil {
-		return
+// AutoFill 为电价列表填充字段
+func (d DlgdConfig) AutoFill(rows *[]DlgdRow, hours *[]DlgdHour) error {
+	if rows == nil || len(*rows) == 0 || hours == nil || len(*hours) == 0 {
+		return fmt.Errorf("电价或时段列表为空")
 	}
 
-	d.StartTime = start
-	d.EndTime = start.AddDate(0, 1, 0)
+	docNo := (*hours)[0].DocNo
+	month := timex.MustTime(d.Month)
 
-	// 处理电价时段配置
-	for _, ph := range c.PriceHours {
-		currentMonth := int(start.Month())
+	hourValues := map[string][10]string{}
+	for i, v := range *rows {
+		v.StartTime = month
+		v.EndTime = month.AddDate(0, 1, 0)
+		v.DocNo = docNo
 
-		// 1. 首先处理月份匹配的常规时段配置
-		if slices.Contains(ph.Months, currentMonth) {
-			d.DeepHour = ph.Deep
-			d.ValleyHour = ph.Valley
-			d.FlatHour = ph.Flat
-			d.PeakHour = ph.Peak
-			d.SharpHour = ph.Sharp
-		}
-
-		// 2. 处理特殊日期配置
-		days := make([]string, 0)
-		for _, day := range ph.Days {
-			parts := strings.Split(day, ":")
-			if len(parts) < 2 {
-				days = append(days, day)
-				continue
-			}
-
-			// 处理周末/星期配置中的月份限定
-			if strings.Contains(strings.ToLower(parts[0]), "weekend") ||
-				strings.Contains(strings.ToLower(parts[0]), "sat") ||
-				strings.Contains(strings.ToLower(parts[0]), "sun") {
-				// 提取月份参数并转换为数字
-				months := slicex.MapFunc(parts[1:], func(s string) int {
-					m, _ := strconv.Atoi(s)
-					return m
-				})
-
-				// 检查当前月份是否在限定范围内
-				if slices.Contains(months, currentMonth) {
-					days = append(days, parts[0])
-				}
-				continue
-			}
-
-			days = append(days, day)
-		}
-
-		// 如果有特殊日期配置，则更新对应时段
-		if len(days) > 0 {
-			date := strings.Join(days, ",")
-			if len(ph.Deep) != 0 {
-				d.DeepHour = ph.Deep
-				d.DeepDate = date
-			}
-			if len(ph.Valley) != 0 {
-				d.ValleyHour = ph.Valley
-				d.ValleyDate = date
-			}
-			if len(ph.Flat) != 0 {
-				d.FlatHour = ph.Flat
-				d.FlatDate = date
-			}
-			if len(ph.Peak) != 0 {
-				d.PeakHour = ph.Peak
-				d.PeakDate = date
-			}
-			if len(ph.Sharp) != 0 {
-				d.SharpHour = ph.Sharp
-				d.SharpDate = date
+		values, ok := hourValues[v.Category]
+		if !ok {
+			if vs, ok := mergeHours(*hours, v.Category, int64(month.Month())); ok {
+				hourValues[v.Category] = vs
+				values = vs
+			} else {
+				return fmt.Errorf("获取电价时段信息失败: %s", v.Category)
 			}
 		}
-	}
 
-	return
-}
+		v.SharpDate = values[0]
+		v.SharpHour = values[1]
+		v.PeakDate = values[2]
+		v.PeakHour = values[3]
+		v.FlatDate = values[4]
+		v.FlatHour = values[5]
+		v.ValleyDate = values[6]
+		v.ValleyHour = values[7]
+		v.DeepDate = values[8]
+		v.DeepHour = values[9]
 
-// CheckPriceHour 验证峰谷时段配置是否覆盖全天24小时
-func (c DlgdConfig) CheckPriceHour() error {
-	for _, h := range c.PriceHours {
-		hours := []string{h.Deep, h.Valley, h.Flat, h.Peak, h.Sharp}
-		// 特殊情况下允许只配置一个时段(如高温天只设尖峰)
-		if slicex.LenFunc(hours, func(s string) bool { return len(s) > 0 }) == 1 {
-			return nil
-		}
-
-		// 计算总时长
-		t, err := getDuration(strings.Join(hours, ","))
-		if err != nil {
-			return fmt.Errorf("时段解析失败: %w", err)
-		}
-
-		// 验证是否覆盖24小时
-		if t != 3600*24 {
-			return fmt.Errorf("时段配置不完整: 总时长%.1fh≠24h, 配置:%+v", float64(t)/3600.0, h)
-		}
+		(*rows)[i] = v
 	}
 
 	return nil

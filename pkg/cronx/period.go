@@ -23,5 +23,13 @@ var (
 	PeriodValley = Period{Name: "valley", Desc: "谷段", Color: "#27AE60"}
 	PeriodDeep   = Period{Name: "deep", Desc: "深谷", Color: "#006442"}
 
+	dlgdPeriodDescs = []string{
+		PeriodSharp.Desc,
+		PeriodPeak.Desc,
+		PeriodFlat.Desc,
+		PeriodValley.Desc,
+		PeriodDeep.Desc,
+	}
+
 	PeriodStandard = Period{Name: "standard", Desc: "基准", Color: "#3498DB"}
 )

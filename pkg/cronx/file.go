@@ -10,10 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"code.sajari.com/docconv"
 	"github.com/rs/xid"
+	"seeccloud.com/edscron/pkg/x/expx"
 
-	pdf "github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/ledongthuc/pdf"
+	pdfapi "github.com/pdfcpu/pdfcpu/pkg/api"
 )
 
 const (
@@ -49,7 +50,7 @@ func image2Pdf(in string, out *string) error {
 	}
 
 	outFile := filepath.Join(tempDir, fmt.Sprintf("%s.pdf", xid.New().String()))
-	if err := pdf.ImportImagesFile([]string{in}, outFile, nil, nil); err != nil {
+	if err := pdfapi.ImportImagesFile([]string{in}, outFile, nil, nil); err != nil {
 		return fmt.Errorf("图片转PDF失败: %w", err)
 	}
 
@@ -60,7 +61,8 @@ func image2Pdf(in string, out *string) error {
 // 文件本地化
 func localize(url string, name *string) error {
 	if !urlRegex.MatchString(url) {
-		return fmt.Errorf("无效的URL格式: %s", url)
+
+		return fmt.Errorf("无效的URL格式: %s", expx.If(url == "", "空URL", url))
 	}
 
 	ext := extractFileExtension(url)
@@ -140,19 +142,48 @@ func ensureDir(dirPath string) error {
 	return nil
 }
 
-// 获取word文件(限定.docx)文本
-func readWord(path string, content *string) error {
+// ReadPdf 读取PDF文件的指定页内容
+func readPdf(path string, pageNum int, content *string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	res, err := docconv.Convert(f, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", true)
+	fileInfo, err := f.Stat()
 	if err != nil {
 		return err
 	}
 
-	*content = regexp.MustCompile(`\s+`).ReplaceAllString(res.Body, "")
+	pdfReader, err := pdf.NewReader(f, fileInfo.Size())
+	if err != nil {
+		return err
+	}
+
+	totalPages := pdfReader.NumPage()
+	if totalPages == 0 {
+		return fmt.Errorf("PDF文件为空")
+	}
+
+	builder := strings.Builder{}
+	if pageNum >= 1 && pageNum <= totalPages {
+		page := pdfReader.Page(pageNum)
+		text, err := page.GetPlainText(nil)
+		if err != nil {
+			return err
+		}
+		builder.WriteString(text)
+	} else {
+		for i := 1; i <= totalPages; i++ {
+			page := pdfReader.Page(i)
+			text, err := page.GetPlainText(nil)
+			if err != nil {
+				return err
+			}
+			builder.WriteString(text)
+		}
+	}
+
+	*content = regexp.MustCompile(`\s+`).ReplaceAllString(builder.String(), "")
 	return nil
 }

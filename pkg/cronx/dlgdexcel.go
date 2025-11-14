@@ -51,15 +51,7 @@ func (row *DlgdRow) format(unit float64) {
 }
 
 // unexcelize 从Excel文件解析电价数据
-//
-// 参数:
-//   - name: 文件名
-//   - initRow: 初始化行结构体
-//   - dlgd: 存储解析结果的指针
-//
-// 返回:
-//   - error: 错误信息
-func unexcelize(name string, initRow DlgdRow, dlgd *Dlgd) error {
+func unexcelize(name string, area string, titlePat string, dlgdRows *[]DlgdRow, dlgdHours *[]DlgdHour) error {
 	// 打开Excel文件
 	f, err := excelize.OpenFile(name)
 	if err != nil {
@@ -80,8 +72,8 @@ func unexcelize(name string, initRow DlgdRow, dlgd *Dlgd) error {
 		colNum = len(maxs)
 	}
 
-	// 提取关键信息：电压等级行、列和单位
-	volRow, volCol, unit := extInfo(f, rowNum, colNum)
+	// 提取关键信息：匹配的电价表标题后的电压等级行、列和单位
+	volRow, volCol, unit := extInfo(f, titlePat, rowNum, colNum)
 	volReg := regexp.MustCompile(voltagePattern)
 	volSZReg := regexp.MustCompile(voltageSZPattern)
 
@@ -89,6 +81,7 @@ func unexcelize(name string, initRow DlgdRow, dlgd *Dlgd) error {
 	titles := slicex.NewFunc(colNum, func(i int) string { return mustCell(f, defSheet, volRow, i+1) })
 
 	// 遍历数据行
+	comment := ""
 	for row := volRow + 1; row <= rowNum; row++ {
 		cell := mustCell(f, defSheet, row, volCol)
 		// 匹配电压等级行
@@ -99,18 +92,19 @@ func unexcelize(name string, initRow DlgdRow, dlgd *Dlgd) error {
 			})
 
 			// 解析数据到结构体
-			dr := initRow
+			dr := DlgdRow{Area: area}
 			(&dr).evaluate(titles, values)
 			(&dr).splitSZCategory()   // 处理深圳特殊情况
 			(&dr).format(units[unit]) // 单位转换
-			dlgd.Rows = append(dlgd.Rows, dr)
-			dlgd.Comment = ""
+			*dlgdRows = append(*dlgdRows, dr)
 			continue
 		}
+
 		// 收集备注信息
-		dlgd.Comment += fmt.Sprintln(mustCell(f, defSheet, row, 1))
+		comment += fmt.Sprintln(mustCell(f, defSheet, row, 1))
 	}
-	dlgd.Comment = strings.Trim(dlgd.Comment, "\n")
+
+	*dlgdHours = append(*dlgdHours, NewDlgdHours(area, comment)...)
 
 	return nil
 }
@@ -177,9 +171,20 @@ func (row *DlgdRow) splitSZCategory() {
 //   - row: 电压等级所在行号
 //   - col: 电压等级所在列号
 //   - unit: 电价单位
-func extInfo(f *excelize.File, rowNum int, colNum int) (row int, col int, unit string) {
+func extInfo(f *excelize.File, titlePat string, rowNum int, colNum int) (row int, col int, unit string) {
+	titleReg := regexp.MustCompile(titlePat)
+	afterTitle := false
 	unit = yuanUnit // 默认单位
 	for i := 1; i <= rowNum; i++ {
+
+		// 先匹配电价表标题，因同一份文件中可能包含多个区域电价表
+		if !afterTitle {
+			if titleReg.MatchString(mustRange(f, defSheet, i, 1, i, colNum, true)) {
+				afterTitle = true
+			}
+			continue
+		}
+
 		for j := 1; j <= colNum; j++ {
 			cell := mustCell(f, defSheet, i, j)
 			// 定位电压等级列

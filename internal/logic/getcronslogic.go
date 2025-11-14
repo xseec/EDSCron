@@ -32,7 +32,7 @@ func (l *GetCronsLogic) GetCrons(in *cron.CronsReq) (*cron.CronsRsp, error) {
 	}
 
 	var values []*cron.CronBody
-	copierx.Copy(&values, crons)
+	copierx.MustCopy(&values, crons)
 
 	return &cron.CronsRsp{
 		Crons: values,

@@ -6,11 +6,11 @@ import (
 	"seeccloud.com/edscron/cron"
 	"seeccloud.com/edscron/internal/svc"
 	"seeccloud.com/edscron/model"
+	"seeccloud.com/edscron/pkg/copierx"
 	"seeccloud.com/edscron/pkg/cronx"
 	"seeccloud.com/edscron/pkg/vars"
 	"seeccloud.com/edscron/pkg/x/expx"
 
-	"github.com/jinzhu/copier"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -37,11 +37,7 @@ func (l *AddHolidaysLogic) AddHolidays(in *cron.AddHolidaysReq) (*cron.ResultRsp
 	area := cronx.EitherChinaOrTaiwan(in.Address)
 
 	var many []model.Holiday
-	for _, h := range in.Holidays {
-		var holiday model.Holiday
-		copier.Copy(&holiday, h)
-		many = append(many, holiday)
-	}
+	copierx.MustCopy(&many, in.Holidays)
 
 	if err := l.svcCtx.HolidayModel.AddMany(l.ctx, string(area), &many); err != nil {
 		return nil, err
